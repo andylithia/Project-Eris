@@ -1,0 +1,35 @@
+
+
+------------ Display Encoder ------------
+Test Data:
+(Verified by CCE33, seems incorrect)
+A:		98765432108976
+B:		02020009090000
+Disp:	-8.76.543 1 -76
+2(xx1x): display decimal dot, move cursor forward(Originally done in the cathode driver, the last three digits seems to be always present), display digit
+9(1xxx): blank digit
+
+example: (HP55)
+A:		00009901080023
+B:		09990606009000
+Disp:	____99.01.08_23
+
+
+			A B C D E F G.
+0: 0000:	1 1 1 1 1 1 0
+1: 0001:	0 1 1 0 0 0 0
+2: 0010:	1 1 0 1 1 0 1
+3: 0011:	1 1 1 1 0 0 1
+4: 0100:	0 1 1 0 0 1 1
+5: 0101:	1 0 1 1 0 1 1	
+6: 0110:	1 0 1 1 1 1 1
+7: 0111:	1 1 1 0 0 0 0
+8: 1000:	1 1 1 1 1 1 1
+9: 1001:	1 1 1 1 0 1 1
+
+------------ Register Transfer ------------
+
+// How to SR
+*	NOTE:	  将A拆分成三个，AH[3:0], AM[47:0], AL[4:0]，WS低时source是AL[0]，
+*			在WS高，切换为AM[0]，然后WS的下降沿清空AH，之后source为AL[0]，直到
+*			结束
