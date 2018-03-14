@@ -19,4 +19,4 @@ and serval .txt, .dsl ( DSLogic captured data, can be opened via DSView ) files 
 This project is licensed under MIT License.
 Email: thelithcore@gmail.com
 
-This project contains logical similarities from Systemyde's 41CL Project (permission granted). I'd recommend you check out his beautifully written source code.
+This project contains logical similarities from Systemyde's 41CL Project (with permission). I'd recommend you check out his beautifully written source code.
