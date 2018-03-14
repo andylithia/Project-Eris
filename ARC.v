@@ -54,10 +54,8 @@ reg [55:0]		m_r;			// M scratchpad register
 
 // "ENable for change" Signals
 reg				b_en;
-reg				c_en;
 reg				stk_en;
 reg				m_en;
-reg 			ALU_en;
 
 // Shift register input MUX
 reg				a_nxt;
@@ -93,7 +91,6 @@ wire			te_iarith;		// I[9:5] 5-bit Arith (or Display) OPCODE
 wire			te_itype;		// I[1:0] 2-bit OPCODE Type, 00:Misc, 10:Arith
 wire			te_is;			// IS Available, T45-T55, 10 cycle
 wire			te_t55;			// Done Refreshing
-wire			te_t11;
 wire			te_t0;			// Start Signal
 wire			te_t4km1;		// The Last Clock Of A Digit Time
 
@@ -121,7 +118,7 @@ always @ (posedge cph2) begin
 	if(!sync && pre_sync)	pre_sync <= 0;
 	else if(sync)			pre_sync <= 1;
 
-	if(!sync && pre_sync)	sys_cnt_r <= 6'b0-1;
+	if(!sync && pre_sync)	sys_cnt_r <= 6'b0;
 	else 					sys_cnt_r <= sys_cnt_r + 1;
 end
 
@@ -132,7 +129,7 @@ assign Itype_Arith	= (optype_dly_r == 2'b10);
 assign Itype_Misc	= (optype_dly_r == 2'b00);
 always @ (posedge cph2) begin
 	if(te_iarith)	opcode_sr <= {is, opcode_sr[4:1]};
-	if(te_itype)	optype_sr <= {is, optype_sr};
+	if(te_itype)	optype_sr <= {is, optype_sr[1]};
 	if(te_t55)		{opcode_dly_r,optype_dly_r} <= {opcode_sr, optype_sr};
 end
 
@@ -161,7 +158,7 @@ always @ (*) begin
 		// C=C+C
 		7'b10101_10:alu_out = cry_0;
 		// A=A-1, A=A+1
-		7'b11x11_10:alu_out = a_r[0]^cry_0;
+		7'b11x11_10:alu_out = a_r[0]^cry_1;
 		// ?B=0
 		7'b00000_10:alu_out = b_r[0]^cry_0;
 		default:	alu_out = 1'b0;
@@ -327,8 +324,10 @@ always @ (*) begin
 	endcase
 
 	if(re_a_arithtype) begin
-		if(te_t4km1)a_nxt_buffer = {alu_out, a_r[55:53]};
-		else		a_nxt_buffer = {dadj_out, a_r[53]};
+		if(ws) begin
+			if(te_t4km1)	a_nxt_buffer = {dadj_out, a_r[53]};
+			else			a_nxt_buffer = {alu_out, a_r[55:53]};
+		end else			a_nxt_buffer = {a_r[0], a_r[55:53]};
 	end else begin
 		if(ws)		a_nxt_buffer = {a_nxt, a_r[55:53]};
 		else		a_nxt_buffer = {a_r[0], a_r[55:53]};

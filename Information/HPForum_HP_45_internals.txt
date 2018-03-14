@@ -1,0 +1,140 @@
+HP 45 Internals
+
+Posted by Tony Duell (UK) on 18 Sept 2003, 9:18 p.m.
+
+Mechanical construction (and architecture) very similar to HP35 (see 
+previous notes). 2 PCBs, keyboard and display on upper PCB, CPU and ROMs 
+on lower PCB. Connections between PCBs by 25 pins (same signals as HP35).
+
+Keyboard/display PCB
+--------------------
+
+
+This has an 00035- part number, and seems to be electically identical to 
+the board in an HP35. The 2 chips have different numbers : 
+
+
+Anode driver : 1820-1029
+Cathode driver : 1820-1226
+
+
+but seem electically very similar to the chips in an HP35. Same pinouts 
+(so see previous notes again).
+
+
+Logic PCB
+---------
+
+
+The 2 transistors and the transformer form a power supply giving the same 
+3 voltages (for the same purposes) as the HP35. There is no discrete 
+component reset circuit, though (see below for what replaced it).
+
+
+2 of the chips :
+
+
+Control and Timing : 1818-0078
+Arithmetic and Registers : 1820-1169
+
+
+have the same pinout as the corresponding chips on the HP35 logic PCB. 
+Presumably they have different instruction sets, though.
+
+
+This leaves 4 more chips :
+
+
+1820-1128 Clock driver and init
+             -------
+     Init --|   U   |-- Init C
+          --|       |--
+ Phi_2 In --|       |-- Phi_2 Out
+      Gnd --|       |-- Gnd
+          --|       |--
+      Vgg --|       |-- Vss
+          --|       |--
+ Phi_1 In --|       |-- Phi_1 Out
+             -------
+
+
+This replaces the 8 pin clock driver of the HP35 and most of the discrete 
+components in the reset circuit. The signals are :
+
+
+Phi_n In : 2 phase clock inputs from anode driver (at 'bipolar' levels)
+Phi_n Out (called Phi_n on other logic board chips) : 2 phase clock 
+outputs to rest of CPU
+Init : Reset output to C&T and ROMs
+Init C : 2.2uF capacitor from here to ground -- reset timing capacitor. 
+This is the only component in the HP35 reset circuit that couldn't be put 
+on the chip.
+ 
+
+
+1818-0057, 1818-0082 : ROMs
+
+
+Similar to the ROMs in the HP35, but presumably higher capacity. Now 
+packaged in 16 pin DIL (ceramic) packages. The signals are the same as 
+the HP35 ROM interface, and the pinout is :
+
+
+             -------
+      Vss --|   U   |-- 
+          --|       |-- IA
+          --|       |-- WS
+      Gnd --|       |--
+     Init --|       |-- Phi_1
+       IS --|       |-- Vgg
+     Sync --|       |-- Phi_2
+          --|       |--
+             -------
+
+
+See the HP35 notes for signal descriptions
+
+
+1820-0993 RAM
+This connects to the (unused in the HP35) data pin on the A&R chip and 
+transfers data to/from the arithmetic registers. 
+
+
+The pinout is : 
+             -------
+      Vss --|   U   |-- IS
+      Gnd --|       |-- 
+      Gnd --|       |-- Data
+      Gnd --|       |-- Phi_2
+      Gnd --|       |-- Phi_1
+      Gnd --|       |-- Vgg
+      Gnd --|       |--
+      Gnd --|       |-- RCD
+             -------
+
+
+Data : Data to/from A&R chip
+Phi_n : 2 phase clock inputs
+IS : ROM output (InStruction) line, used to address RAM.
+RCD : Reset Cathode Driver signal from A&R, used to define start of a word.
+
+
+Testpoints ; 
+There are 12 testpoints on the edge of the CPU board, in the same 
+position and carrying the same signals as on the HP35. For reference, the 
+signals are : 
+
+
+o-- Vss
+o-- Gnd
+o-- Phi_1
+o-- Phi_2
+o-- Vgg
+o-- IS
+o-- IA
+o-- Sync
+o-- WS
+o-- Init
+o-- Carry
+o-- Data 
+

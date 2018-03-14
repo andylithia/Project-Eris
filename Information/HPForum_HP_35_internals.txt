@@ -1,0 +1,235 @@
+HP 35 internals
+
+Posted by Tony Duell (UK) on 18 Sept 2003, 9:15 p.m.
+
+There are 2 PCBs, connected by 25 pin contacts. The upper PCB contains 
+the display, keyboard, display drivers, etc. The lower PCB contains the 
+processor and firmware ROMs. The connections between the PCBs are : 
+
+o-- Disp 0
+o-- Disp 1
+o-- KC1
+o-- Disp 2
+o-- Disp 3
+o-- Disp 4
+o-- Phi_1
+o-- Phi_2
+o-- KC2
+o-- Vbsw
+o-- Vcc (+8.2V)
+o-- Gnd
+o-- Gnd
+o-- RCD
+o-- KC3
+o-- KR1
+o-- KR2
+o-- KR3
+o-- KC5
+o-- KR4
+o-- KC4
+o-- KR5
+o-- KR6
+o-- KR7
+o-- KR8
+
+
+KC = Keyboard Column line. KR = Keyboard Row line
+Disp = display data bus from A&R chip to anode driver
+RCD = Reset Cathode Driver - start display scan
+Phi_n = 2 phase system clock
+Vcc = 8.2V power line from PSU on logic board to cathode driver. Vbsw = 
+swiotched battery voltage.
+
+
+There are 2 custom chips on the keyboard/display PCB. 
+
+
+1820-0853 (anode driver and system clock)
+
+
+           ----------
+  Disp0 --|    U     |-- Ag
+  Disp1 --|          |-- Ae
+  Disp2 --|          |-- Ah
+  Disp3 --|          |-- Af
+  Disp4 --|          |-- Ad
+   Step --|          |-- Gnd
+  Phi_1 --|          |-- Ab
+  Phi_2 --|          |-- Ac
+     LC --|          |-- Aa
+   Rset --|          |-- Vbsw
+           ----------
+
+
+Disp = Display data bus (as above). 
+A = display anode drive lines [1], segments named conventionally (h = 
+decimal point)
+Phi_n = clock output to logic board
+Step = step output to cathode driver (display scanning)
+LC = oscillator components (LC series circuit from here to ground)
+Rset = resistor from here to ground, appears to be part of low battery 
+circuit
+
+
+[1] There's an inductor of 130uH (or 68uH for the point) from each anode 
+line to Vbsw. Display runs from back-emhf from these inductors when the 
+anode driver turns off. Neat!
+
+
+
+1820-0854 cathode driver (essentially a 15 stage shift register for 
+display scanning).
+
+
+
+           ----------
+     k9 --|    U     |-- k8
+    k10 --|          |-- k7
+    k11 --|          |-- k9
+   Vbsw --|          |-- k5
+    k12 --|          |-- k4
+    k13 --|          |-- Vbsw
+    k14 --|          |-- k3
+    RCD --|          |-- k2
+   Step --|          |-- k1
+    Vcc --|          |-- k15
+           ----------
+
+
+k = display cathode outputs. Step = display scan clock from anode driver
+RCD = Reset Cathode Driver = start scan (from A&R chip)
+Note lack of ground pin -- runs between Vcc (8.2V) and Vbsw (4V).
+
+
+Logic PCB
+---------
+Firstly the discrete components. The 2 transistors above the C&T chip (28 
+pin) are the PSU. They, together with the pulse transformer, provide 3 
+voltages to the rest of the machine : Vss (+6V), Vgg (-12V) and Vcc (+8.2V)
+
+
+The other 2 transistors, and associated components, form a schmitt 
+trigger for the power-on reset (init) signal. This is fed to the C&T chip 
+and the ROMs.
+
+
+The little 8 pin chip : 
+
+
+1820-0855 Clock driver
+
+
+
+            ----------
+Phi_2 In --|    U     |-- Phi 2 Out
+     Gnd --|          |-- Gnd
+     Vgg --|          |-- Vss
+Phi_1 In --|          |-- Phi_1 Out
+            ----------
+
+
+Buffers clock signals (at 6V levels) from anode driver to MOS levels for 
+rest of CPU logic. From now on, Phi_n will mean the MOS signals!
+
+
+The processor is in 2 chips, basically control (C&T) and data path (A&R). 
+It operates on 56 bit words (which hold a normalised real number in BCD). 
+
+
+
+Control & Timing (C&T) -- the control part of the CPU (and keyboard scanner)
+1820-0849
+
+
+           ----------
+    Vss --|    U     |-- WS
+  Phi_1 --|          |-- 
+  Phi_2 --|          |--
+    Gnd --|          |-- Sync
+   Init --|          |-- 
+     IA --|          |-- 
+  Carry --|          |-- KC1 
+    KR2 --|          |-- KC2
+    KR3 --|          |-- KC3
+    KR4 --|          |-- KC4
+    KR5 --|          |-- KC5
+    KR6 --|          |-- Vgg
+    KR7 --|          |-- KR1
+    KR8 --|          |-- IS
+           ----------
+
+
+KC = Keyboard Column, KR = Keyboard Row (to keyboard matrix)
+Carry = Carry flag input from A&R chip
+Init = power-on reset
+IA = Instruction Address = address to ROMs
+IS = InStruction = ROM Data input
+Sync = machine cycle sync signal
+Phi = 2 phase clock
+WS = Word Select from ROMs (used to update part of a 56 bit word)
+
+
+Arithmetic & Registers (A&R) --  CPU data path
+1820-0848
+
+
+
+           ----------
+  Phi_1 --|    U     |-- Phi_2
+    Vss --|          |-- Gnd 
+     IS --|          |-- Vgg
+   Sync --|          |-- Disp4
+     WS --|          |-- Disp3
+  Carry --|          |-- Disp0
+   Data --|          |-- Disp1
+    RCD --|          |-- Disp2
+           ----------
+
+
+Disp = Display data bus. RCD = Reset Cathode Driver. 
+Phi = 2 phase clock, IS = InStruction (from ROMs) 
+Sync = machine cycle sync signal
+Carry = Carry flag output
+WS = Word Select
+Data = bit-serial contents of X (display) register. Only used as T/P in 
+the HP35
+
+
+ROMs : These are 256 word (10 bit word) devices, serial address and data, 
+in 10 pin TO99 cans (can't show in ASCII, so will show as 10 pin DIP). 
+
+
+1818=0024, 1818-0026, 1818-0028
+
+
+           ----------
+     IS --|    U     |-- IA
+   Init --|          |-- Vgg
+     WS --|          |-- Sync
+    Gnd --|          |-- Phi_1
+    Vss --|          |-- Phi_2
+           ----------
+
+
+Signals as above (C&T chip)
+
+
+Testpoints : There are 12 testpoints at one edge of the logic PCB, near 
+the A&R chip. Used for factory testing/diagnosis. Just about _all_ 
+signals are availabe either here or on the keyboard/display connector, so 
+it's possible to find most faults from the signals here. The testpoints 
+are : 
+
+
+o-- Vss
+o-- Gnd
+o-- Phi_1 ) Output from clock driver
+o-- Phi_2 )
+o-- Vgg
+o-- IS
+o-- IA
+o-- Sync
+o-- WS
+o-- Init
+o-- Carry
+o-- Data
