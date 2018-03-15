@@ -27,6 +27,9 @@ module ARC (
 //					3.Not enough attention was spared to non-arithmetic type
 //					  opcodes, double check.
 //					4.Display Signal (anode signal) Generation
+//					5.LDC n
+//					6.C->DataAdr, C->Data, Data->C
+//					7.RAM Interface
 //
 //	Goal UNTIMED:	1.Utilize CPH1 for better timing
 //
@@ -365,16 +368,17 @@ always @ (*) begin
 	endcase
 end
 
-always @ (posedge cph2) begin
-	if(b_en) begin
-		if(ws)	b_r <= {b_nxt, b_r[55:1]};
-		else 	b_r <= {b_r[0], b_r[55:1]};
+always @ (posedge cph2 or negedge ws) begin
+	if(~ws)begin
+		if({opcode_dly_r, optype_dly_r}==7'b10100_00) b_r[55:52] <= 4'b0;
+	end else begin
+		if(b_en) begin
+			if(ws)	b_r <= {b_nxt, b_r[55:1]};
+			else 	b_r <= {b_r[0], b_r[55:1]};
+		end
 	end
 end
 
-always @ (negedge ws) begin
-	if({opcode_dly_r, optype_dly_r}==7'b10100_00) b_r[55:52] <= 4'b0;
-end
 
 /******************************************************************************
 /*	Register C

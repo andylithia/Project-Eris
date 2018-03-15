@@ -24,7 +24,9 @@ reg [7:0]		rtn_adr_r;		// Return Address Buffer
 reg [9:0]		is_buf_sr;		// The inst being fetched this cycle
 reg [9:0]		is_buf_dly_r;	// The inst being executed this cycle
 
-reg [5:0]		kc_buf_r;		// keycode Buffer
+reg [5:0]		kcode_buf_r;	// keycode Buffer
+reg				kdown;
+// reg [2:0]		kc_mask;
 
 /***** Pointer ****************************************************************/
 reg [3:0]		ptr_r;			// Pointer Register
@@ -82,6 +84,32 @@ end
 
 always @ (posedge te_p) begin
 	if(~ws_wp_done_r)	ws_wp_done_r <= 1;
+end
+
+/******************************************************************************
+/*	Key Scanner
+/*****************************************************************************/
+always @ (*) begin
+	// Kr
+	case(sys_cnt_r[2:0]) 
+		3'b000:	kr = 8'b0000_0001;
+		3'b001: kr = 8'b0000_0100;
+		3'b010: kr = 8'b0010_0000;
+		3'b011: kr = 8'b0100_0000;
+		3'b100: kr = 8'b1000_0000;
+		3'b101: kr = 8'b0000_0010;
+		3'b110: kr = 8'b0001_0000;
+		3'b111: kr = 8'b0000_1000;
+	endcase // sys_cnt_r[2:0]
+
+	case(sys_cnt_r[5:3])
+		3'b000: kdown = kc[0]; 
+		3'b010: kdown = kc[1];
+		3'b011: kdown = kc[2];
+		3'b101: kdown = kc[3];
+		3'b110: kdown = kc[4];
+		default:kdown = 1'b0;
+	endcase
 end
 
 

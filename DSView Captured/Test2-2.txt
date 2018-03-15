@@ -1,0 +1,7 @@
+Test 2-2 Description:
+Test 2-2 is a sequence of operation. Involving all chips on the HP45 motherboard.
+...Detail will be updated later...
+
+Important Timestamp:
+1.7954365s:	T11 pulse of the first fetch of a KEY->ROM ADDR instruction
+1.795798s:	The Beginning of the transfer of KEYCODE<60,ENTER> on IA
