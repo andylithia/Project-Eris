@@ -1,3 +1,27 @@
+///***< LICENSE - HEAD >**********************************************************/
+// MIT License
+//
+// Copyright (c) 2018 AndyLithia
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+///***< LICENSE - TAIL >**********************************************************/
+
 module ARC (
 	//input			cph1,
 	input			cph2,
@@ -337,8 +361,12 @@ always @ (*) begin
 	end
 end
 
-always @ (posedge cph2) begin
-	a_r <=  {a_nxt_buffer, a_r[52:1]};
+always @ (posedge cph2 or negedge ws) begin
+	if(~ws) begin
+		// Load Constant n
+		if({opcode_dly_r[0], optype_dly_r}==3'b000)
+				a_r <= {opcode_dly_r[4:1],a_r[52:1]};
+	end else 	a_r <= {a_nxt_buffer, a_r[52:1]};
 	if(te_t55||ws) adly_r <= (te_t55)?4'b0000:{a_r[0],adly_r[3:1]};
 end
 
