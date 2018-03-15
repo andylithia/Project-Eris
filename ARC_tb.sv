@@ -11,19 +11,29 @@ reg	[9:0]	em_is_r;
 reg			em_is;
 wire 		em_sync;
 
-reg			em_ws;
-
 wire		out_carry;
 wire		out_start;
 wire [4:0]	out_anode_data;
+
+wire		te_p;
+wire		te_m;
+wire		te_x;
+wire		te_wp;
+wire		te_ms;
+wire		te_xs;
+wire		te_s;
+
+reg [2:0]	te_type;
+reg [2:0]	te_type_dly_r;
+reg			te_en_dly_r;
+reg			em_ws;
+reg	[3:0]	ptr_r;
 
 initial begin
 	cfst = 0;
 	cph1 = 0;
 	cph2 = 0;
 	rstb = 0;
-
-	em_ws = 1;
 
 	#35 rstb = 1;
 end
@@ -59,26 +69,62 @@ always_ff @ (posedge cph2 or negedge rstb) begin
  	end else em_sys_cnt_r <= em_sys_cnt_r + 1;
 end
 
+// ***** Time Enables *****
+assign te_d0 = (em_sys_cnt_r[5:2]==0);
+assign te_d13 = (em_sys_cnt_r[5:2]==4'd13);
+
+assign te_p = (em_sys_cnt_r[5:2]==ptr_r);
+assign te_m = (em_sys_cnt_r[5:2]>=4'd3)&&(em_sys_cnt_r[5:2]<=4'd12);
+assign te_x = (em_sys_cnt_r[5:2]<=4'd2);
+assign te_w = 1'b1;
+assign te_wp = (em_sys_cnt_r[5:2]<=ptr_r);
+assign te_ms = (em_sys_cnt_r[5:2]>=4'd3)&&(em_sys_cnt_r[5:2]<=4'd13);
+assign te_xs = (em_sys_cnt_r[5:2]==4'd2);
+assign te_s = te_d13;
+
+always_comb begin
+	ptr_r = 3;
+	if(te_en_dly_r)
+		case(te_type_dly_r)
+			3'b000:	em_ws = te_p;
+			3'b001:	em_ws = te_m;
+			3'b010:	em_ws = te_x;
+			3'b011:	em_ws = te_w;
+			3'b100:	em_ws = te_wp;
+			3'b101:	em_ws = te_ms;
+			3'b110:	em_ws = te_xs;
+			3'b111:	em_ws = te_s;
+		endcase
+	else			em_ws = 1'b1;
+	
+	te_type = em_is_r[4:2];
+end
+
+always @ (posedge te_d0) begin
+	te_type_dly_r <= te_type;
+	te_en_dly_r <= em_is_r[1:0]==2'b10;
+end
+
+// ***** Test Data Generation *****
 always_comb begin
 	case(em_adr_r) 
 		8'h00:	em_is_r = 10'b11101_010_00;	// CLREG
 		8'h01:	em_is_r = 10'b11101_010_00;	// CLREG
-		8'h02:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h03:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h04:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h05:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h06:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h07:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h08:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h09:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h0A:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h0B:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h0C:	em_is_r = 10'b11111_000_10; // A=A+1
-		8'h0D:	em_is_r = 10'b11111_000_10; // A=A+1 // 12 in total
+		8'h02:	em_is_r = 10'b11111_000_10; // A=A+1[p]
+		8'h03:	em_is_r = 10'b11111_001_10; // A=A+1[m]
+		8'h04:	em_is_r = 10'b11111_010_10; // A=A+1[x]
+		8'h05:	em_is_r = 10'b11111_011_10; // A=A+1[w]
+		8'h06:	em_is_r = 10'b11111_100_10; // A=A+1[wp]
+		8'h07:	em_is_r = 10'b11111_101_10; // A=A+1[ms]
+		8'h08:	em_is_r = 10'b11111_110_10; // A=A+1[xs]
+		8'h09:	em_is_r = 10'b11111_111_10; // A=A+1[s]
+		8'h0A:	em_is_r = 10'b11111_000_10; // A=A+1[p]
+		8'h0B:	em_is_r = 10'b11111_000_10; // A=A+1[p]
+		8'h0C:	em_is_r = 10'b11111_000_10; // A=A+1[p]
+		8'h0D:	em_is_r = 10'b11111_000_10; // A=A+1[p] // 12 in total
 		8'h0E:	em_is_r = 10'b11011_000_10; // A=A-1
-
 		default:em_is_r = 0;
-	endcase // em_adr_r
+	endcase // em_adr_r	
 
 	case(em_sys_cnt_r)
 		6'd45:	em_is = em_is_r[0];
@@ -93,7 +139,6 @@ always_comb begin
 		6'd54:	em_is = em_is_r[9];
 		default:em_is = 0;
 	endcase // em_sys_cnt_r
-
 end
 
 endmodule // ARC_tb
