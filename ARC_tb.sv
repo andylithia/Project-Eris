@@ -3,9 +3,9 @@ module ARC_tb;
 
 reg cph1, cph2;
 reg cfst;
-reg rstb;
+reg rstn;
 
-reg [5:0]	em_sys_cnt_r;
+reg [5:0]	sys_cnt_ph2_r;
 reg [7:0]	em_adr_r;
 reg	[9:0]	em_is_r;
 reg			em_is;
@@ -33,9 +33,9 @@ initial begin
 	cfst = 0;
 	cph1 = 0;
 	cph2 = 0;
-	rstb = 0;
+	rstn = 0;
 
-	#35 rstb = 1;
+	#35 rstn = 1;
 end
 
 // CLK generation
@@ -56,30 +56,30 @@ ARC uut(
 	.anode_data(out_anode_data)
 	);
 
-assign	em_sync = (em_sys_cnt_r >= 6'd45)
-					&&(em_sys_cnt_r <= 6'd54);
+assign	em_sync = (sys_cnt_ph2_r >= 6'd45)
+					&&(sys_cnt_ph2_r <= 6'd54);
 
-always_ff @ (posedge cph2 or negedge rstb) begin
-	if(~rstb) begin
-		em_sys_cnt_r <= 0;
+always_ff @ (posedge cph2 or negedge rstn) begin
+	if(~rstn) begin
+		sys_cnt_ph2_r <= 0;
 		em_adr_r <= 0;
-	end else if(em_sys_cnt_r == 6'd55) begin
+	end else if(sys_cnt_ph2_r == 6'd55) begin
 		em_adr_r <= em_adr_r + 1;
- 		em_sys_cnt_r <= 0;
- 	end else em_sys_cnt_r <= em_sys_cnt_r + 1;
+ 		sys_cnt_ph2_r <= 0;
+ 	end else sys_cnt_ph2_r <= sys_cnt_ph2_r + 1;
 end
 
 // ***** Time Enables *****
-assign te_d0 = (em_sys_cnt_r[5:2]==0);
-assign te_d13 = (em_sys_cnt_r[5:2]==4'd13);
+assign te_d0 = (sys_cnt_ph2_r[5:2]==0);
+assign te_d13 = (sys_cnt_ph2_r[5:2]==4'd13);
 
-assign te_p = (em_sys_cnt_r[5:2]==ptr_r);
-assign te_m = (em_sys_cnt_r[5:2]>=4'd3)&&(em_sys_cnt_r[5:2]<=4'd12);
-assign te_x = (em_sys_cnt_r[5:2]<=4'd2);
+assign te_p = (sys_cnt_ph2_r[5:2]==ptr_r);
+assign te_m = (sys_cnt_ph2_r[5:2]>=4'd3)&&(sys_cnt_ph2_r[5:2]<=4'd12);
+assign te_x = (sys_cnt_ph2_r[5:2]<=4'd2);
 assign te_w = 1'b1;
-assign te_wp = (em_sys_cnt_r[5:2]<=ptr_r);
-assign te_ms = (em_sys_cnt_r[5:2]>=4'd3)&&(em_sys_cnt_r[5:2]<=4'd13);
-assign te_xs = (em_sys_cnt_r[5:2]==4'd2);
+assign te_wp = (sys_cnt_ph2_r[5:2]<=ptr_r);
+assign te_ms = (sys_cnt_ph2_r[5:2]>=4'd3)&&(sys_cnt_ph2_r[5:2]<=4'd13);
+assign te_xs = (sys_cnt_ph2_r[5:2]==4'd2);
 assign te_s = te_d13;
 
 always_comb begin
@@ -126,7 +126,7 @@ always_comb begin
 		default:em_is_r = 0;
 	endcase // em_adr_r	
 
-	case(em_sys_cnt_r)
+	case(sys_cnt_ph2_r)
 		6'd45:	em_is = em_is_r[0];
 		6'd46:	em_is = em_is_r[1];
 		6'd47:	em_is = em_is_r[2];
@@ -138,7 +138,7 @@ always_comb begin
 		6'd53:	em_is = em_is_r[8];
 		6'd54:	em_is = em_is_r[9];
 		default:em_is = 0;
-	endcase // em_sys_cnt_r
+	endcase // sys_cnt_ph2_r
 end
 
 endmodule // ARC_tb

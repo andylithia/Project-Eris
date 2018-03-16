@@ -25,11 +25,11 @@
 
 // A fake ROM primitive for simulation
 module ROM10b (
-	input [9:0]		Address,
-	input			OutClock,
-	input			OutClockEn,
-	input			Reset,
-	output [9:0]	Q	
+	input [9:0]			Address,
+	input				OutClock,
+	input				OutClockEn,
+	input				Reset,
+	output reg [9:0]	Q	
 );
 
 always @(posedge OutClock) begin
