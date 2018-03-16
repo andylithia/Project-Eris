@@ -1,1 +1,23 @@
-Update later
+Test1:
+	Determined the Keyboard Row Refresh Sequence
+
+Test2:
+	Examined the buss signal when entering the following key sequence:
+	1, 2, 3, ENTER, *, STO, 2, RCL, 1
+	This test was done twice
+
+Test3:
+	Examined the display signals when entering the following key sequence:
+	1, 2, ., 3, CHS, EEX
+
+Test4:
+	Examined the buss signal when powering on.
+
+Test5(Idle 0.00):
+	Examined the clock and other timing signals.
+
+Test5(Error State - -------------):
+	Examined the display signals when no decimal point is present
+
+Test6:
+	Examined the display signals when displaying "1.010101010-10"

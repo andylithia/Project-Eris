@@ -91,4 +91,12 @@ IA		>_______________
 
 
 
-Clocks:
+Clocks
+		Driver		Set by			Sampled by
+Start:	ARC			negedge CPH2	CPH1
+SYNC:	CTC			negedge CPH2	?
+IS:		ROM			posedge CPH2	CPH1
+IA:		CTC			posedge CPH2	CPH1
+WS:		CTC||ROM	masked CPH2		CPH1
+Carry:	ARC			negedge CPH2	?
+STEP:	ANODE		the origin of CPH1?
