@@ -80,12 +80,20 @@ assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
 assign te_t55		= (sys_cnt_r == 6'd55);
 assign te_t0		= (sys_cnt_r == 6'd0);
 assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
+assign te_t4k		= (sys_cnt_r[1:0] == 2'b00);
 
 always @ (posedge cph2) begin
 	if (sys_cnt_r == 6'd55)	sys_cnt_r <= 0;
 	else					sys_cnt_r <= sys_cnt_r + 1;
 end
 
+/******************************************************************************
+/*	OPCODE Buffer
+/*****************************************************************************/
+always @ (posedge cph2) begin
+	if(te_is)		is_buf_sr <= {is, is_buf_sr[9:1]};
+	if(te_t55)		is_buf_dly_r <= is_buf_sr;
+end
 /******************************************************************************
 /*	Pointer WS Signal
 /*****************************************************************************/
@@ -114,7 +122,6 @@ end
 /******************************************************************************
 /*	Key Scanner
 /*****************************************************************************/
-
 always @ (*) begin
 	// Kr
 	case(sys_cnt_r[2:0]) 
@@ -136,6 +143,13 @@ always @ (*) begin
 		3'b110: kdown = kc[4];
 		default:kdown = 1'b0;
 	endcase
+end
+
+always @ (posedge cph1) begin
+	if(kdown) begin
+		stat_bits_r[0] <= 1'b1;
+		kcode_buf_r <= sys_cnt_r;
+	end
 end
 
 // The sequence of bank switching

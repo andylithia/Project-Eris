@@ -36,16 +36,10 @@ Disp:	_23.46_04____14
 8: 1000:	1 1 1 1 1 1 1
 9: 1001:	1 1 1 1 0 1 1
 
-    T1 T2 T3 T4
+	T1 T2 T3 T0		System Digit Time
+    t0 t1 t1 t3		Decoder Digit Time
 Da  A  A
 Db  B  B     dp
 Dc  C  C  C  C
 Dd  E  D
 De  G  F     dp  
-
------------- Register Transfer ------------
-
-// How to SR
-*	NOTE:	  将A拆分成三个，AH[3:0], AM[47:0], AL[4:0]，WS低时source是AL[0]，
-*			在WS高，切换为AM[0]，然后WS的下降沿清空AH，之后source为AL[0]，直到
-*			结束

@@ -44,15 +44,16 @@ module ARC (
 //					CPU works from his amazing code.					
 //
 //	Date 18.03.12:	Rough Coding Finished, Code Untested.
-//			-TODO:	1.The result of COMPARE operations might be incorrect,
+//			-TODO:	1.The result of COMPARE operations should be negated,
 //					  requires further investigation.
 //					2.Write a testbench for this module which contains a series
 //					  of arithmetic type opcodes (*_10)
 //					3.Not enough attention was spared to non-arithmetic type
 //					  opcodes, double check.
-//					4.Display Signal (anode signal) Generation
-//					5.LDC n
-//					6.C->DataAdr, C->Data, Data->C
+//					4.Display Signal (anode signal) Generation (Seems to be ok)
+//					5.LDC n (Code added, not tested)
+//					6.C->DataAdr, C->Data, Data->C (Will not be implementated 
+//						in this version)
 //					7.RAM Interface
 //
 //	Goal UNTIMED:	1.Utilize CPH1 for better timing
@@ -120,6 +121,7 @@ wire			te_is;			// IS Available, T45-T55, 10 cycle
 wire			te_t55;			// Done Refreshing
 wire			te_t0;			// Start Signal
 wire			te_t4km1;		// The Last Clock Of A Digit Time
+wire			te_t4k;			// The First Clock Of A Digit Time
 
 reg				re_a_arithtype;	// A register is exec'ing arith-type operation
 reg				re_c_arithtype;	// C register is exec'ing arith-type operation
@@ -127,6 +129,7 @@ reg				re_c_arithtype;	// C register is exec'ing arith-type operation
 // Display Signals
 reg [3:0]		a_disp_buf_r;	// The Delayed Digit Data for Display
 reg				disp_blank;		// The Current Digit is Blanked ?
+reg				disp_blank_r;	// Latched B[3]
 reg				disp_dp_r;		// The Current Digit is a Decimal Point ?
 reg				disp_en_r;		// The Display is Enabled ?
 
@@ -142,6 +145,7 @@ assign te_is		= (sys_cnt_r >= 6'd45) && (sys_cnt_r <= 6'd54);
 assign te_t55		= (sys_cnt_r == 6'd55);
 assign te_t0		= (sys_cnt_r == 6'd0);
 assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
+assign te_t4k		= (sys_cnt_r[1:0] == 2'b00);
 assign start		= te_t0;
 
 always @ (posedge cph2) begin
@@ -155,8 +159,6 @@ end
 /******************************************************************************
 /*	OPCODE Buffer
 /*****************************************************************************/
-assign Itype_Arith	= (optype_dly_r == 2'b10);
-assign Itype_Misc	= (optype_dly_r == 2'b00);
 always @ (posedge cph2) begin
 	if(te_iarith)	opcode_sr <= {is, opcode_sr[4:1]};
 	if(te_itype)	optype_sr <= {is, optype_sr[1]};
@@ -364,12 +366,12 @@ always @ (*) begin
 	end
 end
 
-always @ (posedge cph2 or negedge ws) begin
-	if(~ws) begin
-		// Load Constant n
-		if({opcode_dly_r[0], optype_dly_r}==3'b000)
-				a_r <= {opcode_dly_r[4:1],a_r[52:1]};
-	end else 	a_r <= {a_nxt_buffer, a_r[52:1]};
+always @ (posedge cph2) begin
+	// Load Constant n
+	if(ws&&{opcode_dly_r[0], optype_dly_r}==3'b000)
+		a_r <= {opcode_dly_r[4:1],a_r[52:1]};
+	else 	a_r <= {a_nxt_buffer, a_r[52:1]};
+
 	if(te_t55||ws) adly_r <= (te_t55)?4'b0000:{a_r[0],adly_r[3:1]};
 end
 
@@ -479,11 +481,6 @@ always @ (*) begin
 		2'b10:	{f_nxt, e_nxt, d_nxt} = {c_r[0], f_r[0], e_r[0]};
 		// CLREG
 		2'b11:	{f_nxt, e_nxt, d_nxt} = 3'b000;
-		/*
-		default:f_nxt = f_r[0];
-				e_nxt = e_r[0];
-				d_nxt = d_r[0];
-				*/
 	endcase
 
 	casex({opcode_dly_r, optype_dly_r})
@@ -524,71 +521,58 @@ end
 // **** TBD ****
 
 always @ (*) begin
-	disp_blank = ~disp_en_r || b_r[0];
+	disp_blank = ~disp_en_r || disp_blank_r;
 
 	if(disp_blank)
 		disp_data = 5'b00000;
 	else begin
 		// A, A,  ,  
 		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
-			6'b0000_0x,
-			6'b0x1x_0x,
-			6'b0101_0x,
-			6'b100x_0x:	disp_data[0] = 1'b1;
+			6'b0000_01, 6'b0x1x_01, 6'b0101_01, 6'b100x_01,
+			6'b0000_10, 6'b0x1x_10, 6'b0101_10,
+			6'b100x_10:	disp_data[0] = 1'b1;
 			default:	disp_data[0] = 1'b0;
 		endcase
 
-		// B, B,  ,dp
+		//  , B, B, dp
 		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
-			6'b00xx_0x,
-			6'b0100_0x,
-			6'b0111_0x,
-			6'b100x_0x:	disp_data[1] = 1'b1;
-			6'bxxxx_11:	disp_data[1] = disp_dp_r;
+			6'b00xx_1x, 6'b0100_1x, 6'b0111_1x,
+			6'b100x_1x:	disp_data[1] = 1'b1;
+			6'bxxxx_00:	disp_data[1] = disp_dp_r;
 			default:	disp_data[1] = 1'b0;
 		endcase
 
 		// C, C, C, C
 		casex (a_disp_buf_r) 
-			4'b000x,
-			4'b0011,
-			4'b0101,
-			4'b0110,
+			4'b000x, 4'b0011, 4'b0101, 4'b0110,
 			4'b100x:disp_data[2] = 1'b1;
-
 			default:disp_data[2] = 1'b0;
 		endcase
 
 		// E, D,  ,  
 		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
-			6'b0000_00,
-			6'b0x10_00,
-			6'b1000_00,
-
-			6'b00x0_01,
-			6'b0011_01,
-			6'b0101_01,
-			6'b0110_01,
-			6'b100x_01:	disp_data[3] = 1'b0;
-
+			6'b0000_01, 6'b0x10_01, 6'b1000_01, 6'b00x0_10,
+			6'b0011_10, 6'b0101_10, 6'b0110_10,
+			6'b100x_10:	disp_data[3] = 1'b1;
 			default:	disp_data[3] = 1'b0;
 		endcase
 
 		// G, F,  ,dp
 		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
-			6'b001x_00,
-			6'b010x_00,
-			6'b0110_00,
-			6'b100x_00,
-
-			6'b0000_00,
-			6'b010x_00,
-			6'b0110_00,
-			6'b100x_00: disp_data[4] = 1'b1;
-
-			6'bxxxx_11:	disp_data[4] = disp_dp_r;
+			6'b001x_01, 6'b010x_01, 6'b0110_01, 6'b100x_01,
+			6'b0000_10, 6'b010x_10, 6'b0110_10,
+			6'b100x_10: disp_data[4] = 1'b1;
+			6'bxxxx_00:	disp_data[4] = disp_dp_r;
 			default:	disp_data[4] = 1'b0;
 		endcase
+	end
+end
+
+always @ (posedge cph1) begin
+	if(te_t4k)	begin 
+		a_disp_buf_r	<= a_r[3:0];
+		disp_blank_r	<= te_t0?1'b1:b_r[3];
+		disp_dp_r		<= b_r[1];
 	end
 end
 

@@ -47,13 +47,14 @@ always begin
 end
 
 ARC uut(
-	.cph2      (cph2),
-	.is        (em_is),
-	.ws        (em_ws),
-	.sync      (em_sync),
-	.carry     (out_carry),
-	.start     (out_start),
-	.anode_data(out_anode_data)
+	.cph1		(cph1),
+	.cph2		(cph2),
+	.is			(em_is),
+	.ws			(em_ws),
+	.sync		(em_sync),
+	.carry		(out_carry),
+	.start		(out_start),
+	.disp_data	(out_anode_data)
 	);
 
 assign	em_sync = (sys_cnt_ph2_r >= 6'd45)
@@ -84,7 +85,7 @@ assign te_s = te_d13;
 
 always_comb begin
 	ptr_r = 3;
-	if(te_en_dly_r)
+	//if(te_en_dly_r)
 		case(te_type_dly_r)
 			3'b000:	em_ws = te_p;
 			3'b001:	em_ws = te_m;
@@ -95,7 +96,7 @@ always_comb begin
 			3'b110:	em_ws = te_xs;
 			3'b111:	em_ws = te_s;
 		endcase
-	else			em_ws = 1'b1;
+	//else			em_ws = 1'b0;
 	
 	te_type = em_is_r[4:2];
 end
@@ -110,6 +111,7 @@ always_comb begin
 	case(em_adr_r) 
 		8'h00:	em_is_r = 10'b11101_010_00;	// CLREG
 		8'h01:	em_is_r = 10'b11101_010_00;	// CLREG
+		/*
 		8'h02:	em_is_r = 10'b11111_000_10; // A=A+1[p]
 		8'h03:	em_is_r = 10'b11111_001_10; // A=A+1[m]
 		8'h04:	em_is_r = 10'b11111_010_10; // A=A+1[x]
@@ -123,7 +125,8 @@ always_comb begin
 		8'h0C:	em_is_r = 10'b11111_000_10; // A=A+1[p]
 		8'h0D:	em_is_r = 10'b11111_000_10; // A=A+1[p] // 12 in total
 		8'h0E:	em_is_r = 10'b11011_000_10; // A=A-1
-		default:em_is_r = 0;
+		*/
+		default:em_is_r = 10'b00000_000_00;	// NOP
 	endcase // em_adr_r	
 
 	case(sys_cnt_ph2_r)
