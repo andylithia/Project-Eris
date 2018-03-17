@@ -23,17 +23,18 @@
 ///***< LICENSE - TAIL >**********************************************************/
 
 module CTC (
-	//input			cph1,
+	input			cph1,
 	input			cph2,
-	//input			pon,
-	input			nrst,
+	input			pon,
+	// input			nrst,
 	input			is,
-	input			carry
+	input			carry,
+	input [4:0]		kc,
+
+	output			ia,
 	output			ws,
 	output wire		sync,
-
-	output [7:0]	kr,
-	input [4:0]		kc
+	output [7:0]	kr
 );
 
 /***** Gating Signals *********************************************************/

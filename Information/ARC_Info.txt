@@ -1,19 +1,28 @@
 
 
 ------------ Display Encoder ------------
-Test Data:
-(Verified by CCE33, seems incorrect)
-A:		98765432108976
-B:		02020009090000
-Disp:	-8.76.543 1 -76
-2(xx1x): display decimal dot, move cursor forward(Originally done in the cathode driver, the last three digits seems to be always present), display digit
-9(1xxx): blank digit
+
+THE SIMULATION RESULT FROM CCE33 IS INCORRECT, ISSUED.
 
 example: (HP55)
 A:		00009901080023
 B:		09990606009000
-Disp:	____99.01.08_23
+Disp:  ____99.01.08_23
+ATTENTION: THIS RESULT FROM CCE33 IS INCORRECT
 
+example: (HP55 corrected)
+A:		00009901080023
+B:		09990606009000
+Disp:  ___99.01.08__23
+
+example: (HP45)
+A:		12346604000014
+B:		90200900999000
+Disp:	_23.46_04____14
+
+2(xx1x): display decimal dot, move cursor forward
+
+9(1xxx): blank digit
 
 			A B C D E F G.
 0: 0000:	1 1 1 1 1 1 0
@@ -26,6 +35,13 @@ Disp:	____99.01.08_23
 7: 0111:	1 1 1 0 0 0 0
 8: 1000:	1 1 1 1 1 1 1
 9: 1001:	1 1 1 1 0 1 1
+
+    T1 T2 T3 T4
+Da  A  A
+Db  B  B     dp
+Dc  C  C  C  C
+Dd  E  D
+De  G  F     dp  
 
 ------------ Register Transfer ------------
 

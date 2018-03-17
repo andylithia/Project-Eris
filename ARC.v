@@ -23,14 +23,14 @@
 ///***< LICENSE - TAIL >**********************************************************/
 
 module ARC (
-	//input			cph1,
-	input			cph2,
-	input			is,
-	input			ws,
-	input			sync,
-	output wire		carry,
-	output wire		start,
-	output [4:0]	anode_data
+	input				cph1,
+	input				cph2,
+	input				is,
+	input				ws,
+	input				sync,
+	output wire			carry,
+	output wire			start,
+	output reg [4:0]	disp_data
 );
 
 
@@ -125,7 +125,10 @@ reg				re_a_arithtype;	// A register is exec'ing arith-type operation
 reg				re_c_arithtype;	// C register is exec'ing arith-type operation
 
 // Display Signals
-reg				display_en_r;
+reg [3:0]		a_disp_buf_r;	// The Delayed Digit Data for Display
+reg				disp_blank;		// The Current Digit is Blanked ?
+reg				disp_dp_r;		// The Current Digit is a Decimal Point ?
+reg				disp_en_r;		// The Display is Enabled ?
 
 /******************************************************************************
 /*	System Counter & Timing
@@ -519,5 +522,74 @@ end
 /*	Display Output
 /*****************************************************************************/
 // **** TBD ****
+
+always @ (*) begin
+	disp_blank = ~disp_en_r || b_r[0];
+
+	if(disp_blank)
+		disp_data = 5'b00000;
+	else begin
+		// A, A,  ,  
+		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
+			6'b0000_0x,
+			6'b0x1x_0x,
+			6'b0101_0x,
+			6'b100x_0x:	disp_data[0] = 1'b1;
+			default:	disp_data[0] = 1'b0;
+		endcase
+
+		// B, B,  ,dp
+		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
+			6'b00xx_0x,
+			6'b0100_0x,
+			6'b0111_0x,
+			6'b100x_0x:	disp_data[1] = 1'b1;
+			6'bxxxx_11:	disp_data[1] = disp_dp_r;
+			default:	disp_data[1] = 1'b0;
+		endcase
+
+		// C, C, C, C
+		casex (a_disp_buf_r) 
+			4'b000x,
+			4'b0011,
+			4'b0101,
+			4'b0110,
+			4'b100x:disp_data[2] = 1'b1;
+
+			default:disp_data[2] = 1'b0;
+		endcase
+
+		// E, D,  ,  
+		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
+			6'b0000_00,
+			6'b0x10_00,
+			6'b1000_00,
+
+			6'b00x0_01,
+			6'b0011_01,
+			6'b0101_01,
+			6'b0110_01,
+			6'b100x_01:	disp_data[3] = 1'b0;
+
+			default:	disp_data[3] = 1'b0;
+		endcase
+
+		// G, F,  ,dp
+		casex ({a_disp_buf_r,sys_cnt_r[1:0]}) 
+			6'b001x_00,
+			6'b010x_00,
+			6'b0110_00,
+			6'b100x_00,
+
+			6'b0000_00,
+			6'b010x_00,
+			6'b0110_00,
+			6'b100x_00: disp_data[4] = 1'b1;
+
+			6'bxxxx_11:	disp_data[4] = disp_dp_r;
+			default:	disp_data[4] = 1'b0;
+		endcase
+	end
+end
 
 endmodule // ARC

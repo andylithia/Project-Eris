@@ -23,82 +23,64 @@
 ///***< LICENSE - TAIL >**********************************************************/
 
 `timescale  100ns / 1ns
-module ROM_tb;
 
-reg			cph1, cph2;
-reg			rstn;
+module SYS_tb;
 
-reg [5:0]	sys_cnt_ph2_r;
-reg [5:0]	sys_cnt_ph1_r;
-reg			sync;
-wire		is;
-reg			ia;
-wire		ws;
-wire [1:0]	d_page;
-reg [9:0]	adr_r		= 10'b0;
+reg			cfst;
+wire		cph1, cph2;
+wire		ws_rom;
+wire		ws_ctc;
+wire		ws_combined = ws_rom || ws_ctc;
 
-QUAD_ROM uut(
-	.cph1  (cph1),
-	.cph2  (cph2),
-	.pon   (rstn),
-	.sync  (sync),
-	.is    (is),
-	.ia    (ia),
-	.ws    (ws),
-	.d_page(d_page),
-	.lpmode(1'b0)
-  );
-
-initial begin
-	cph1 = 0;
-	cph2 = 0;
-	rstn = 0;
-	#35 rstn = 1;
+// Dual Phase CLK Generation
+// Since the bandwidth of FPGA interconnect is very high,
+// The original HP design can generate severe spikes in an FPGA.
+// We use a single-hot counter to eliminate this issue.
+reg [7:0]	clk_div;
+assign cph1 = clk_div[0]&&!clk_div[1]&&!clk_div[7];
+assign cph2 = clk_div[3]&&!clk_div[2]&&!clk_div[4];
+always @ (posedge cfst or negedge rstb) begin
+	if(!rstb)	clk_div <= 8'b00000001;
+	else		clk_div <= {clk_div[6:0],clk_div[7]};
 end
 
-// CLK generation
-always begin
-	#6	cph1 = 0;
-	#6	cph1 = 1;
-	#30	cph2 = 0;
-	#6	cph2 = 1;
-end
+// Instances
+ARC ARC_inst(
+	.cph1		(cph1),
+	.cph2		(cph2),
+	.is			(is),
+	.ws			(ws_combined),
+	.sync		(sync),
 
-assign	sync = (sys_cnt_ph2_r >= 6'd45)
-				&&(sys_cnt_ph2_r <= 6'd54);
+	.carry		(carry),
+	.start		(start),
+	.disp_data	(disp_data)
+);
 
-always_ff @ (posedge cph2 or negedge rstn) begin
-	if(~rstn) begin
-		sys_cnt_ph2_r <= 0;
-		adr_r <= 0;
-	end else if(sys_cnt_ph2_r == 6'd55) begin
-		adr_r <= adr_r + 1;
- 		sys_cnt_ph2_r <= 0;
- 	end else sys_cnt_ph2_r <= sys_cnt_ph2_r + 1;
-end
+QUAD_ROM ROM_inst(
+	.cph1		(cph1),
+	.cph2		(cph2),
+	.pon		(rstn),
+	.sync		(sync),
+	.ia			(ia),
 
-always_comb begin
-	case(sys_cnt_ph2_r)
-		6'd19:	ia = adr_r[0];
-		6'd20:	ia = adr_r[1];
-		6'd21:	ia = adr_r[2];
-		6'd22:	ia = adr_r[3];
-		6'd23:	ia = adr_r[4];
-		6'd24:	ia = adr_r[5];
-		6'd25:	ia = adr_r[6];
-		6'd26:	ia = adr_r[7];
-		default:ia = 0;
-	endcase // sys_cnt_ph2_r
-end
+	.is			(is),
+	.ws			(ws_rom),
+	.d_page		(d_page),
+	.lpmode		(1'b0)
+);
 
-/*
-always_ff @ (posedge cph1 or negedge rstn) begin
-	if(~rstn)
-			sys_cnt_ph1_r <= 0;
-	else if(sys_cnt_ph1_r == 6'd55)
- 			sys_cnt_ph1_r <= 0;
- 	else	sys_cnt_ph1_r <= sys_cnt_ph1_r + 1;
-end
-*/
+CTC CTC_inst(
+	.cph1		(cph1),
+	.cph2		(cph2),
+	.pon		(rstn),
+	.is			(is),
+	.carry		(carry),
 
-endmodule // ROM_tb
+	.ia			(ia),
+	.ws			(ws_ctc)
+	.sync		(sync)
+);
+
+
+endmodule // SYS_tb
