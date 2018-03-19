@@ -46,8 +46,15 @@ reg [7:0]		adr_r;			// ROM Address Buffer
 reg [11:0]		stat_bits_r;	// Status bits
 reg [7:0]		rtn_adr_r;		// Return Address Buffer
 
-reg [9:0]		is_buf_sr;		// The inst being fetched this cycle
+
+// reg [9:0]		is_buf_sr;		// The inst being fetched this cycle
 reg [9:0]		is_buf_dly_r;	// The inst being executed this cycle
+
+reg [7:0]		ibody_buf_sr;	// The body of a instruction, In the original 
+								// design, this was called [ADDRESS BUF (8)]
+reg [1:0]		itype_buf_sr;
+// reg [7:0]		ibody_dly_r;
+// reg [1:0]		itype_dly_r;		
 
 reg [5:0]		kcode_buf_r;	// keycode Buffer
 reg				kdown;
@@ -76,6 +83,8 @@ reg				te_wp;			// 001 word thru ptr
 // Attention: a binary counter was used at this point, 
 //            potentially a better solution
 assign sync 		= te_is;
+assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
+assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
 assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
 assign te_t55		= (sys_cnt_r == 6'd55);
 assign te_t0		= (sys_cnt_r == 6'd0);
@@ -88,12 +97,14 @@ always @ (posedge cph2) begin
 end
 
 /******************************************************************************
-/*	OPCODE Buffer
+/*	OPCODE Buffer and Address Buffer (GTO or JSB)
 /*****************************************************************************/
 always @ (posedge cph2) begin
-	if(te_is)		is_buf_sr <= {is, is_buf_sr[9:1]};
-	if(te_t55)		is_buf_dly_r <= is_buf_sr;
+	if(te_ibody)	ibody_buf_sr <= {is, ibody_buf_sr[7:1]};
+	if(te_itype)	itype_buf_sr <= {is, itype_buf_sr[1]};
+	if(te_t55)		is_buf_dly_r <= {ibody_buf_sr, itype_buf_sr};
 end
+
 /******************************************************************************
 /*	Pointer WS Signal
 /*****************************************************************************/
