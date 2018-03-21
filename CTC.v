@@ -31,7 +31,7 @@ module CTC (
 	input			carry,
 	input [4:0]		kc,
 
-	output			ia,
+	output wire		ia,
 	output			ws,
 	output wire		sync,
 	output [7:0]	kr
@@ -42,8 +42,11 @@ wire 			itype_brn;
 wire			itype_jsb;
 wire			itype_rtn;
 
+wire			ia_out_en;
+reg				ia_out_buf_r;
+
 /***** Shift Registers ********************************************************/
-reg [7:0]		adr_r;			// ROM Address Buffer
+reg [7:0]		radr_r;			// ROM Address Buffer
 reg [11:0]		stat_bits_r;	// Status bits
 reg [7:0]		rtn_adr_r;		// Return Address Buffer
 
@@ -70,13 +73,19 @@ reg				ws_wp_done_r;	// Reached the Pointer in wp mode;
 /***** Timings ****************************************************************/
 reg [5:0]		sys_cnt_r;		// System Counter (Binary)
 
+wire			te_ia;			// IA output, T20-T27, 8 cycle, RADR first pass
 wire			te_is;			// IS Available, T45-T55, 10 cycle
+wire			te_t0_7;		// RTN first pass
+wire			te_t8_19;		// STBT first pass
+wire			te_t47;			// RADR second pass begin
 wire			te_t55;			// Done Refreshing
 wire			te_t0;			// Start Signal
 wire			te_t4km1;		// The Last Clock Of A Digit Time
 
 reg				te_p;			// 000 pointer
 reg				te_wp;			// 001 word thru ptr
+
+wire			stat_bits_pos;	// the stat bit beging operated on, first pass
 
 /******************************************************************************
 /*	System Counter & Timing
@@ -87,12 +96,22 @@ assign sync 		= te_is;
 assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
 assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
 // assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
-assign te_is	= sys_cnt_r[5]&&(
+assign te_is		= sys_cnt_r[5]&&(
 					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
 					(&{sys_cnt_r[3:2],|{sys_cnt_r[1:0]}}));
 
+assign te_ia		= sys_cnt_r[4]&&(
+					(&{~sys_cnt_r[5], ~sys_cnt_r[3],
+						|{&sys_cnt_r[1:0], sys_cnt_r[2]}})	||
+					(&{~sys_cnt_r[2], sys_cnt_r[4:3], ~|sys_cnt_r[1:0]}));
+
+assign te_t0_7		= sys_cnt_r <= 6'd07;
+assign te_t8_19		= (sys_cnt_r <= 6'd19)&&~te_t0_7;
+
 assign te_t55		= (sys_cnt_r == 6'd55);
+assign te_t47		= (sys_cnt_r <= 6'd47)&&te_is;
 assign te_t0		= (sys_cnt_r == 6'd0);
+
 assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
 assign te_t4k		= (sys_cnt_r[1:0] == 2'b00);
 
@@ -104,10 +123,41 @@ end
 /******************************************************************************
 /*	OPCODE Buffer and Address Buffer (GTO or JSB)
 /*****************************************************************************/
+// Necessary?
+assign itype_jsb = (itype_dly_r == 2'b01);
+assign itype_brn = (itype_dly_r == 2'b11);
+assign itype_rtn = ({ibody_dly_r, itype_dly_r} == 10'b0xxx_1100_00);
+assign itype_sst = ({ibody_dly_r, itype_dly_r} == 10'bxxxx_0001_00);
+assign itype_cst = ({ibody_dly_r, itype_dly_r} == 10'bxxxx_1001_00);
+assign itype_tst = ({ibody_dly_r, itype_dly_r} == 10'bxxxx_0000_00);
+
+assign stat_bits_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
+
+assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
+
 always @ (posedge cph2) begin
 	if(te_ibody)	ibody_buf_sr <= {is, ibody_buf_sr[7:1]};
 	if(te_itype)	itype_buf_sr <= {is, itype_buf_sr[1]};
 	if(te_t55)		is_buf_dly_r <= {ibody_buf_sr, itype_buf_sr};
+end
+
+// Maybe I should write this part in the style that I've written the ARC in.
+always @ (posedge cph2) begin
+	if(itype_rtn) begin
+		if(te_t0_7) begin
+			radr_r <= {rtn_adr_r[0],radr_r[7:1]};
+			rtn_adr_r <= {rtn_adr_r[0],rtn_adr_r[7:1]};
+		end else if (te_ia) begin
+			rtn_adr_r <= {rtn_adr_r[0],rtn_adr_r[7:1]};
+			ia_out_buf_r <= rtn_adr_r[0];
+		end
+	end else if(itype_jsb) begin
+
+	end else if(itype_brn) begin
+
+	end else begin
+
+	end
 end
 
 /******************************************************************************
