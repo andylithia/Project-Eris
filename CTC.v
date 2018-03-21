@@ -38,8 +38,9 @@ module CTC (
 );
 
 /***** Gating Signals *********************************************************/
-reg 			c_jsb_en_r;
-reg				c_brh_en_r;
+wire 			itype_brn;
+wire			itype_jsb;
+wire			itype_rtn;
 
 /***** Shift Registers ********************************************************/
 reg [7:0]		adr_r;			// ROM Address Buffer
@@ -85,7 +86,11 @@ reg				te_wp;			// 001 word thru ptr
 assign sync 		= te_is;
 assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
 assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
-assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
+// assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
+assign te_is	= sys_cnt_r[5]&&(
+					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
+					(&{sys_cnt_r[3:2],|{sys_cnt_r[1:0]}}));
+
 assign te_t55		= (sys_cnt_r == 6'd55);
 assign te_t0		= (sys_cnt_r == 6'd0);
 assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
@@ -111,11 +116,10 @@ end
 // **** DONE...? ****
 always @ (*) begin
 	te_p = sys_cnt_r[5:2] == ptr_r;
-
 	if(ws_drive_en_r) begin
 		if(ws_type_r)	ws =  ~ws_wp_done_r||te_p;
 		else			ws = te_p;
-	end else		ws = 0;
+	end else			ws = 0;
 end
 
 always @ (posedge cph2) begin

@@ -34,7 +34,7 @@ nnnn 1001 00: 0 -> sn						Y
 
 nnnn 1011 00: if p # n						Y
 
-0000 1101 00: return						Y
+0000 1100 00: return						Y
 10011 101 00: c -> data address			Y
 10111 101 00: c -> data					Y
 
@@ -66,6 +66,7 @@ OPCD  FS  TYP Mnemonics*1		Mnemonics*2
 ..1.1 fff 1.: 0 - c -> c[f]		C=-C
 ..11. fff 1.: 0 -> c[f]			C=0
 ..111 fff 1.: 0 - c - 1 -> c[f]	C=-C-1
+
 .1... fff 1.: shift left a[f]	A SL
 .1..1 fff 1.: a -> b[f]			B=A
 .1.1. fff 1.: a - c -> c[f]		C=A-C
@@ -74,6 +75,7 @@ OPCD  FS  TYP Mnemonics*1		Mnemonics*2
 .11.1 fff 1.: if c[f] = 0		?C=0
 .111. fff 1.: a + c -> c[f]		C=A+C
 .1111 fff 1.: c + 1 -> c[f]		C=C+1
+
 1.... fff 1.: if a >= b[f]		?A>=B
 1...1 fff 1.: b exchange c[f]	BC EX
 1..1. fff 1.: shift right c[f]	C SR
@@ -82,6 +84,7 @@ OPCD  FS  TYP Mnemonics*1		Mnemonics*2
 1.1.1 fff 1.: c + c -> c[f]		C=C+C
 1.11. fff 1.: shift right a[f]	A SR
 1.111 fff 1.: 0 -> a[f]			A=0
+
 11... fff 1.: a - b -> a[f]		A=A-B 
 11..1 fff 1.: a exchange b[f]	AB EX
 11.1. fff 1.: a - c -> a[f]		A=A-C
