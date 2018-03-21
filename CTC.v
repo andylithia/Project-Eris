@@ -46,9 +46,12 @@ wire			ia_out_en;
 reg				ia_out_buf_r;
 
 /***** Shift Registers ********************************************************/
-reg [7:0]		radr_r;			// ROM Address Buffer
-reg [11:0]		stat_bits_r;	// Status bits
-reg [7:0]		rtn_adr_r;		// Return Address Buffer
+reg [7:0]		ssr_2_sr;		// ROM Address Buffer
+reg [11:0]		ssr_1_sr;		// Status bits
+reg [7:0]		ssr_0_sr;		// Return Address Buffer
+
+reg				as_out;			// Adder output
+reg				as_cry_r;		// Adder Carry
 
 
 // reg [9:0]		is_buf_sr;		// The inst being fetched this cycle
@@ -124,6 +127,12 @@ end
 /*	OPCODE Buffer and Address Buffer (GTO or JSB)
 /*****************************************************************************/
 // Necessary?
+// ATTENTION: a problem is that the itype should be determined
+//  as soon as the first 2 bits entered the sr
+// TODO: change the sequence to: - shift 2 bits
+//                               - check type and register it
+//                               - shift 8 bits
+//                               - register it
 assign itype_jsb = (itype_dly_r == 2'b01);
 assign itype_brn = (itype_dly_r == 2'b11);
 assign itype_rtn = ({ibody_dly_r, itype_dly_r} == 10'b0xxx_1100_00);
@@ -145,17 +154,23 @@ end
 always @ (posedge cph2) begin
 	if(itype_rtn) begin
 		if(te_t0_7) begin
-			radr_r <= {rtn_adr_r[0],radr_r[7:1]};
-			rtn_adr_r <= {rtn_adr_r[0],rtn_adr_r[7:1]};
+			ssr_2_sr <= {ssr_0_sr[0],ssr_2_sr[7:1]};
+			ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
 		end else if (te_ia) begin
-			rtn_adr_r <= {rtn_adr_r[0],rtn_adr_r[7:1]};
-			ia_out_buf_r <= rtn_adr_r[0];
+			ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
+			ia_out_buf_r <= ssr_0_sr[0];
 		end
-	end else if(itype_jsb) begin
-
 	end else if(itype_brn) begin
 
 	end else begin
+		if(itype_jsb&&te_ibody) begin
+			// @T47: [STBT][RTN][RADR]
+			// IS->[STBT]->[RTN]-X-->[RADR]-|
+			//                     |--(+1)<--
+			{ssr_2_sr, ssr_1_sr, ssr_0_sr}
+			<= {is, ssr_2_sr, ssr_1_sr[11:1], as_out, ssr_0_sr[7:1]};
+		end
+		// Normal loop
 
 	end
 end
@@ -212,7 +227,7 @@ end
 
 always @ (posedge cph1) begin
 	if(kdown) begin
-		stat_bits_r[0] <= 1'b1;
+		ssr_1_sr[0] <= 1'b1;
 		kcode_buf_r <= sys_cnt_r;
 	end
 end
