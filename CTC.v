@@ -50,18 +50,25 @@ reg [7:0]		ssr_2_sr;		// ROM Address Buffer
 reg [11:0]		ssr_1_sr;		// Status bits
 reg [7:0]		ssr_0_sr;		// Return Address Buffer
 
+// reg				ssr_2_cen_r;
+reg				ssr_1_cen_r;	
+
+reg				ssr_2_nxt;
+reg				ssr_1_nxt;
+reg				ssr_0_nxt;
+
 reg				as_out;			// Adder output
 reg				as_cry_r;		// Adder Carry
 
 
 // reg [9:0]		is_buf_sr;		// The inst being fetched this cycle
-reg [9:0]		is_buf_dly_r;	// The inst being executed this cycle
+reg [9:0]		is_buf_sr;	// The inst being executed this cycle
 
-reg [7:0]		ibody_buf_sr;	// The body of a instruction, In the original 
+// reg [7:0]		ibody_buf_sr;	// The body of a instruction, In the original 
 								// design, this was called [ADDRESS BUF (8)]
-reg [1:0]		itype_buf_sr;
-// reg [7:0]		ibody_dly_r;
-// reg [1:0]		itype_dly_r;		
+// reg [1:0]		itype_buf_sr;
+reg [7:0]		ibody_dly_r;
+reg [1:0]		itype_dly_r;		
 
 reg [5:0]		kcode_buf_r;	// keycode Buffer
 reg				kdown;
@@ -96,8 +103,8 @@ wire			stat_bits_pos;	// the stat bit beging operated on, first pass
 // Attention: a binary counter was used at this point, 
 //            potentially a better solution
 assign sync 		= te_is;
-assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
-assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
+// assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
+// assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
 // assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
 assign te_is		= sys_cnt_r[5]&&(
 					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
@@ -113,6 +120,7 @@ assign te_t8_19		= (sys_cnt_r <= 6'd19)&&~te_t0_7;
 
 assign te_t55		= (sys_cnt_r == 6'd55);
 assign te_t47		= (sys_cnt_r <= 6'd47)&&te_is;
+assign te_t48		= (sys_cnt_r <= 6'd48)&&te_is;
 assign te_t0		= (sys_cnt_r == 6'd0);
 
 assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
@@ -145,34 +153,52 @@ assign stat_bits_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
 assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
 
 always @ (posedge cph2) begin
-	if(te_ibody)	ibody_buf_sr <= {is, ibody_buf_sr[7:1]};
-	if(te_itype)	itype_buf_sr <= {is, itype_buf_sr[1]};
-	if(te_t55)		is_buf_dly_r <= {ibody_buf_sr, itype_buf_sr};
+	if(te_is)		is_buf_sr <= {is, is_buf_sr[9:1]};
+	if(te_t47)		itype_dly_r <= is_buf_sr[9:8];		// Determine IType
+	if(te_t55)		ibody_dly_r <= is_buf_sr[9:2];		// Determine Imm Adr
 end
 
 // Maybe I should write this part in the style that I've written the ARC in.
+
+// Begin: [RADR] [STATUS] [RTN]
+//  8clk: [RTN] [RADR] [STATUS]
+// 12clk: [STATUS] [RTN] [RADR]
+//  8clk: [RADR] [STATUS] [RTN]
+/*
 always @ (posedge cph2) begin
-	if(itype_rtn) begin
-		if(te_t0_7) begin
-			ssr_2_sr <= {ssr_0_sr[0],ssr_2_sr[7:1]};
-			ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
-		end else if (te_ia) begin
-			ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
-			ia_out_buf_r <= ssr_0_sr[0];
-		end
-	end else if(itype_brn) begin
+	
+	if(itype_brn) begin
 
 	end else begin
-		if(itype_jsb&&te_ibody) begin
+		if(itype_rtn) begin
+			if(te_t0_7) begin
+				ssr_2_sr <= {ssr_0_sr[0],ssr_2_sr[7:1]};
+				ssr_1_sr <= ssr_1_sr;
+				ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
+				ia_out_buf_r <= 1'bx;
+			end else if (te_ia) begin
+				{ssr_2_sr, ssr_1_sr} <= {ssr_2_sr, ssr_1_sr};
+				ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
+				ia_out_buf_r <= ssr_0_sr[0];
+		end else if(itype_jsb&&te_ibody) begin
 			// @T47: [STBT][RTN][RADR]
 			// IS->[STBT]->[RTN]-X-->[RADR]-|
 			//                     |--(+1)<--
 			{ssr_2_sr, ssr_1_sr, ssr_0_sr}
 			<= {is, ssr_2_sr, ssr_1_sr[11:1], as_out, ssr_0_sr[7:1]};
+			ia_out_buf_r <= 1'bx;
+		end else begin
+			// Normal loop
+			{ssr_2_sr, ssr_1_sr, ssr_0_sr}
+				<= {ssr_0_sr[0], ssr_2_sr, ssr_1_sr, ssr_0_sr[7:1]};
+			ia_out_buf_r <= 1'bx;
 		end
-		// Normal loop
-
 	end
+end
+*/
+
+always @ (*) begin
+
 end
 
 /******************************************************************************
