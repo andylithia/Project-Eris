@@ -71,6 +71,7 @@ reg				carry_in_r;		// JNC Flag
 
 reg [5:0]		kcode_buf_r;	// keycode Buffer
 reg				kdown;
+reg				kdown_r;
 // reg [2:0]		kc_mask;
 
 /***** Pointer ****************************************************************/
@@ -94,8 +95,8 @@ wire			te_t4km1;		// The Last Clock Of A Digit Time
 reg				te_p;			// 000 pointer
 reg				te_wp;			// 001 word thru ptr
 
-wire			stat_bits_pos;	// the stat bit beging operated on, first pass
-
+wire [3:0]		stat_bit_pos;	// the stat bit beging operated on, first pass
+wire			stat_bit_on;
 /******************************************************************************
 /*	System Counter & Timing
 /*****************************************************************************/
@@ -139,103 +140,64 @@ end
 
 assign itype_jsb = (is_buf_sr[1:0] == 2'b01);
 assign itype_brn = (is_buf_sr[1:0] == 2'b11);
-assign itype_rtn = (is_buf_sr == 10'b0xxx_1100_00);
-assign itype_sst = (is_buf_sr == 10'bxxxx_0001_00);
-assign itype_cst = (is_buf_sr == 10'bxxxx_1001_00);
-assign itype_tst = (is_buf_sr == 10'bxxxx_0000_00);
 
-assign stat_bits_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
+assign stat_bit_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
+assign stat_bit_on = te_t8_19&&(stat_bit_pos == is_buf_sr[9:6]);
 
 assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
 
 always @ (posedge cph2) begin
-
-	if(te_is) 
-		// Load new IS
-		is_buf_sr <= {is, is_buf_sr[9:1]};
-	else if(is_has_imm_fr) 
-		// Circulate the ibody if it is imm address
-		is_buf_sr <= {is_buf_sr[2], is_buf_sr[9:3], is_buf_sr[1:0]};
-	else
-		is_buf_sr <= is_buf_sr;
+	// Load new IS or
+	// Circulate the ibody if it is imm address
+	if(te_is)				is_buf_sr <= {is, is_buf_sr[9:1]};
+	else if(is_has_imm_fr) 	is_buf_sr <= {is_buf_sr[2], is_buf_sr[9:3], 
+														is_buf_sr[1:0]};
+	else					is_buf_sr <= is_buf_sr;
 
 	// Determine whether the ibody is imm address
 	if(te_t47)	
 		is_has_imm_fr <= is_buf_sr[8];
+
+	// Store Carry for BRH
+	if(te_t55)
+		carry_in_r <= carry;
 end
 
-// Maybe I should write this part in the style that I've written the ARC in.
+/***** ADDER *****/
 
+always @ (*) begin
+	// Status bits
+	if(is_buf_sr[3:0]==4'b0100) begin
+		// nnnn 00 1->sn
+		// nnnn 01 ?sn=0
+		// nnnn 10 0->sn
+		// xxxx 11 0->s
 
-/*
-always @ (posedge cph2) begin
-	
-	if(itype_brn) begin
+	// P
+	end else if((is_buf_sr[3:0]==4'b1100)||(is_buf_sr[5:0]==6'b011000)) begin
+		// nnnn 0011 n->p
+		// nnnn 1011 ?p#n
+		// xxxx 011x p-1->p, p-1->p (ldc n)
+		// xxxx 1111 p+1->p
 
+	// ISL-H
+	end else if(is_buf_sr[1:0]==2'b01) begin
+		// BRH: IS+1 @ te_ia when no carry
+
+	// SSR0
 	end else begin
-		if(itype_rtn) begin
-			if(te_t0_7) begin
-				ssr_2_sr <= {ssr_0_sr[0],ssr_2_sr[7:1]};
-				ssr_1_sr <= ssr_1_sr;
-				ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
-				ia_out_buf_r <= 1'bx;
-			end else if (te_ia) begin
-				{ssr_2_sr, ssr_1_sr} <= {ssr_2_sr, ssr_1_sr};
-				ssr_0_sr <= {ssr_0_sr[0],ssr_0_sr[7:1]};
-				ia_out_buf_r <= ssr_0_sr[0];
-		end else if(itype_jsb&&te_ibody) begin
-			// @T47: [STBT][RTN][RADR]
-			// IS->[STBT]->[RTN]-X-->[RADR]-|
-			//                     |--(+1)<--
-			{ssr_2_sr, ssr_1_sr, ssr_0_sr}
-			<= {is, ssr_2_sr, ssr_1_sr[11:1], as_out, ssr_0_sr[7:1]};
-			ia_out_buf_r <= 1'bx;
+		// JSB: RADR+1 @ te_is, no te_ia
+		// default: DADR+1 @ te_ia
+		if(is_buf_sr[1:0]==1'b11) begin
+			if(te_is)
 		end else begin
-			// Normal loop
-			{ssr_2_sr, ssr_1_sr, ssr_0_sr}
-				<= {ssr_0_sr[0], ssr_2_sr, ssr_1_sr, ssr_0_sr[7:1]};
-			ia_out_buf_r <= 1'bx;
+
+
 		end
 	end
 end
-*/
 
-// NORM:   ssr2   ssr1   ssr0   ia
-// Begin: [RADR] [STBT] [RTN]  [    ]
-//  8clk: [RTN]  [RADR] [STBT] [    ]
-// 12clk: [STBT] [RTN]  [RADR] [    ]
-//  8clk: [RADR] [STBT] [RTN]  [RADR]
-//  8clk: [RTN]  [RADR] [STBT] [RADR]
-// 12clk: [STBT] [RTN]  [RADR] [RADR]
-//  8clk: [RADR] [STBT] [RTN]  []
-
-// RTN:    ssr2    ssr1   ssr0  ia
-// Begin: [RADR]  [STBT] [RTN] [   ]
-//  8clk: [RTN]   [STBT] [RTN] [   ]
-// 12clk: [RTN]   [STBT] [RTN] [   ]
-//  8clk: [RTN+1] [STBT] [RTN] [RTN]
-
-// JSB:    ssr2     ssr1     ssr0     ia
-//   T47: [STBT]   [RTN]    [RADR]   [  ]
-// Begin: [IS]     [STBT]   [RADR+1] [  ]
-//  8clk: [RADR+1] [IS]     [STBT]   [  ]
-// 12clk: [STBT]   [RADR+1] [IS]     [  ]
-//  8clk: [IS+1]   [STBT]   [RADR+1] [IS]
-
-// BRH:    ssr2   ssr1   ssr0   ia
-//         abuf
-//   T47: [STBT] [RTN]  [RADR] [    ]
-//        [    ]
-// Begin: [RADR] [STBT] [RTN]  [    ]
-//        [IS]
-//  8clk: [RTN]  [RADR] [STBT] [    ]
-//        [IS]
-// 12clk: [STBT] [RTN]  [RADR] [    ]
-//        [ISL-H]
-// -If no carry-
-//  8clk: [IS+1] [STBT] [RTN]  [IS+1]
-//        [ISL-H]
-
+/***** SSR *****/
 
 always @ (*) begin
 	// ssr_2_sr entry
@@ -244,15 +206,21 @@ always @ (*) begin
 												// BRH: ABUF+1 (when no carry)
 												// STATUS Related OPs
 	// ssr_0_sr entry
-	if(te_ia&&itype_rtn)	ssr_0_nxt = ssr_0_sr[0];	// RTN
+	if(te_ia&&is_buf_sr[5:0]==6'b11000)	
+							ssr_0_nxt = ssr_0_sr[0];	// RTN
 	else 					ssr_0_nxt = ssr_1_sr[0];
 end
 
 always @ (posedge cph2) begin
 	if(ssr_2_cen_r)	ssr_2_sr <= {ssr_2_nxt, ssr_2_sr[7:1]};
 	else 			ssr_2_sr <= ssr_2_sr;
-	if(ssr_1_cen_r) ssr_1_sr <= {ssr_2_sr[0], ssr_1_sr[11:1]};
-	else 			ssr_1_sr <= ssr_1_sr;
+	
+	if(ssr_1_cen_r) begin
+		if(te_t55&&kdown)	
+					ssr_1_sr <= {ssr_2_sr[0],ssr_1_sr[11:2], 1'b1};
+		else 		ssr_1_sr <= {ssr_2_sr[0], ssr_1_sr[11:1]};
+	end else 		ssr_1_sr <= ssr_1_sr;
+
 	if(ssr_0_cen_r)	ssr_0_sr <= {ssr_0_nxt, ssr_0_sr[7:1]};
 	else			ssr_0_sr <= ssr_0_sr;
 end
@@ -309,12 +277,11 @@ end
 
 always @ (posedge cph1) begin
 	if(kdown) begin
-		ssr_1_sr[0] <= 1'b1;
+		kdown_r <= 1'b1;
 		kcode_buf_r <= sys_cnt_r;
 	end
-end
 
-// The sequence of bank switching
-// 
+	if(te_t55) kdown_r <= 1'b0;
+end
 
 endmodule // CTC

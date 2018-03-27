@@ -1,28 +1,22 @@
+-- Type 00: Misc
 										ARC	CTC		A	B	C	ST	M
 0000 0000 00：no Operations					
-0001 0000 00: buffer -> rom address		?
-0010 0000 00: memory insert				?
-0100 0000 00: mark and search			?
-0110 0000 00: memory delete				?
-1000 0000 00: rom address -> buffer		?
-1010 0000 00: search for label			?
-1100 0000 00: pointer advance			?
 
+nnnn 1001 00: 0 -> sn						Y
 nnnn 0001 00: 1 -> sn						Y
+nnnn 0101 00: if sn = 0						Y
+0000 1101 00: clear status					Y
 
 nnnn 0011 00: n -> p						Y
+nnnn 1011 00: if p # n						Y
+0000 0111 00: p - 1 -> p					Y
+0000 1111 00: p + 1 -> p					Y
 
 nnn0 0100 00: select rom n					Y
 0011 0100 00: keys -> rom address			Y
-
-nnnn 0101 00: if sn = 0						Y
+0000 1100 00: return						Y
 
 nnnn0 110 00: load constant n			Y	Y
-
-0000 0111 00: p - 1 -> p					Y
-
-nnnn 1001 00: 0 -> sn						Y
-
 00001 010 00: display toggle			Y
 00101 010 00: c exchange m				Y					Cio		Mio
 01001 010 00: c -> stack				Y					Co	STi
@@ -32,20 +26,13 @@ nnnn 1001 00: 0 -> sn						Y
 11001 010 00: down rotate				Y					Cio	STio
 11101 010 00: clear registers			Y			Ai	Bi	Ci	STi	Mi
 
-nnnn 1011 00: if p # n						Y
+-- Type 01:
+aaaaaaaa 01: jsb a
 
-0000 1100 00: return						Y
-10011 101 00: c -> data address			Y
-10111 101 00: c -> data					Y
+-- Type 11:
+aaaaaaaa 11: go to a, if no carry go to a, then go to a
 
-0000 1101 00: clear status					Y
-nnn1 1101 00: delayed select rom n			Y
-
-10111 110 00: data -> c					Y
-
-0000 1111 00: p + 1 -> p					Y
-
-Type 10: Arithmetic Operations
+-- Type 10: Arithmetic Operations
 
 field select
 fff:000:p	pointer			[p]   [3:0]
@@ -114,8 +101,19 @@ cry_r  F>___________________------???------__________________________>
 cry_o	>_____________/^^^^^------???------__________________________>
 cry_z	>^^^^^^^^^^^^^\_____------???------^^^^^^^^^^^^^^^^^^^^^^^^^^>
 
-Type 01: Jump to sub: Saving Return Address
-aaaaaaaa 01: jsb a
 
-Type 11:
-aaaaaaaa 11: go to a, if no carry go to a, then go to a
+
+
+// EXTRA(HP45)
+0001 0000 00: buffer -> rom address
+0010 0000 00: memory insert
+0100 0000 00: mark and search
+0110 0000 00: memory delete
+1000 0000 00: rom address -> buffer
+1010 0000 00: search for label
+1100 0000 00: pointer advance
+
+10011 101 00: c -> data address			Y
+10111 101 00: c -> data					Y
+10111 110 00: data -> c					Y
+nnn1 1101 00: delayed select rom n			Y
