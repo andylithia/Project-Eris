@@ -61,18 +61,14 @@ reg				as_en_r;		// Adder enable
 reg				as_out;			// Adder output
 reg				as_cry_r;		// Adder Carry
 
-reg [9:0]		is_buf_sr;		// The inst being executed this cycle
-// reg [7:0]		ibody_dly_r;	// Equal to is_buf_sr[9:2];
-// reg [1:0]		itype_dly_r;		
-reg				is_has_imm_fr;
+reg [9:0]		is_buf_sr;		// The inst being executed this cycle		
+reg				is_has_imm_r;
 
 reg				carry_in_r;		// JNC Flag
-
 
 reg [5:0]		kcode_buf_r;	// keycode Buffer
 reg				kdown;
 reg				kdown_r;
-// reg [2:0]		kc_mask;
 
 /***** Pointer ****************************************************************/
 reg [3:0]		ptr_r;			// Pointer Register
@@ -106,6 +102,8 @@ assign sync 		= te_is;
 // assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
 // assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
 // assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
+
+// The hard way
 assign te_is		= sys_cnt_r[5]&&(
 					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
 					(&{sys_cnt_r[3:2],|{sys_cnt_r[1:0]}}));
@@ -145,22 +143,26 @@ assign stat_bit_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
 assign stat_bit_on = te_t8_19&&(stat_bit_pos == is_buf_sr[9:6]);
 
 assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
+always @ (posedge cph1) begin
+	if(itype_brn) 						ia_out_buf_r = is_buf_sr[2];
+	else if(is_buf_sr[5:0]==6'b010000)	ia_out_buf_r = kcode_buf_r[0];
+	else								ia_out_buf_r = ssr_0_sr[0];
+end
+
 
 always @ (posedge cph2) begin
 	// Load new IS or
-	// Circulate the ibody if it is imm address
+	// Circulate the ibody if it is an imm address
 	if(te_is)				is_buf_sr <= {is, is_buf_sr[9:1]};
-	else if(is_has_imm_fr) 	is_buf_sr <= {is_buf_sr[2], is_buf_sr[9:3], 
+	else if(is_has_imm_r) 	is_buf_sr <= {is_buf_sr[2], is_buf_sr[9:3], 
 														is_buf_sr[1:0]};
 	else					is_buf_sr <= is_buf_sr;
 
 	// Determine whether the ibody is imm address
-	if(te_t47)	
-		is_has_imm_fr <= is_buf_sr[8];
+	if(te_t47)		is_has_imm_r <= is_buf_sr[8];
 
 	// Store Carry for BRH
-	if(te_t55)
-		carry_in_r <= carry;
+	if(te_t55)		carry_in_r <= carry;
 end
 
 /***** ADDER *****/
@@ -214,7 +216,7 @@ end
 always @ (posedge cph2) begin
 	if(ssr_2_cen_r)	ssr_2_sr <= {ssr_2_nxt, ssr_2_sr[7:1]};
 	else 			ssr_2_sr <= ssr_2_sr;
-	
+
 	if(ssr_1_cen_r) begin
 		if(te_t55&&kdown)	
 					ssr_1_sr <= {ssr_2_sr[0],ssr_1_sr[11:2], 1'b1};
@@ -252,6 +254,7 @@ end
 /******************************************************************************
 /*	Key Scanner
 /*****************************************************************************/
+// **** Done...? ****
 always @ (*) begin
 	// Kr
 	case(sys_cnt_r[2:0]) 

@@ -1,7 +1,7 @@
  NORM:   ssr2     ssr1   ssr0   ia
  Begin: [RADR]   [STBT] [RTN]  [    ]
   8clk: [RTN]    [RADR] [STBT] [    ]
- 12clk: [STBT]   [RTN]  [RADR] [    ]
+ 12clk: [STBT']  [RTN]  [RADR] [    ]
   8clk: [RADR+1] [STBT] [RTN]  [RADR]
   ....
 
@@ -21,40 +21,45 @@
   ....
 
  BRH:    ssr2     ssr1   ssr0   ia
-         abuf
+		 abuf
    T47: [STBT]   [RTN]  [RADR] [  ]
-        [    ]
+		[    ]
  Begin: [RADR]   [STBT] [RTN]  [  ]
-        [IS]
+		[IS]
   8clk: [RTN]    [RADR] [STBT] [  ]
-        [IS]
+		[IS]
  12clk: [STBT]   [RTN]  [RADR] [  ]
-        [ISL-H]
+		[ISL-H]
  -If no carry-
   8clk: [IS+1]   [STBT] [RTN]  [IS]
-        [ISL-H]
+		[ISL-H]
   ....
  (Note: ISL-H equals {IS[3:0],IS[7:4]} )
  -If carry-
   8clk: [RADR+1] [STBT] [RTN]  [RADR]
-        [     ]
-        
+		[     ]
+
+
+		
 
 0000 00 00 00：no Operations					
 
-nnnn 10 01 00: 0 -> sn
-nnnn 00 01 00: 1 -> sn	
-nnnn 01 01 00: if sn = 0	
-xxxx 11 01 00: clear status
+nnnn 10 01 00: 0 -> sn				l
+nnnn 00 01 00: 1 -> sn				l
+nnnn 01 01 00: if sn = 0			l
+xxxx 11 01 00: clear status			l
 
-nnnn 00 11 00: n -> p
-nnnn 10 11 00: if p # n
-xxxx 01 11 00: p - 1 -> p
-xxxx 11 11 00: p + 1 -> p
+nnnn 00 11 00: n -> p				l
+nnnn 10 11 00: if p # n				l
+xxxx 01 11 00: p - 1 -> p			l
+xxxx 11 11 00: p + 1 -> p			l
 
-nnn0 01 00 00: select rom n
-0011 01 00 00: keys -> rom address
-0000 11 00 00: return
+// nnn0 01 00 00: select rom n		
+xxx1 01 00 00: keys -> rom address	l
+xxxx 11 00 00: return				l
+aaaaaaaa   01: jsb a				l
+aaaaaaaa   11: brh a				l
+
 
 xxxx 01 10 00: load constant n		// Supply P, P-1
 xxxx xx 10 00: ARC related
