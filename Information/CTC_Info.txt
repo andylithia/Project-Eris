@@ -1,26 +1,26 @@
- NORM:   ssr2     ssr1   ssr0   ia
+- NORM:  ssr2     ssr1   ssr0   ia
  Begin: [RADR]   [STBT] [RTN]  [    ]
   8clk: [RTN]    [RADR] [STBT] [    ]
  12clk: [STBT']  [RTN]  [RADR] [    ]
   8clk: [RADR+1] [STBT] [RTN]  [RADR]
   ....
 
- RTN:    ssr2    ssr1   ssr0  ia
+- RTN:   ssr2    ssr1   ssr0  ia
  Begin: [RADR]  [STBT] [RTN] [   ]
-  8clk: [RTN]   [STBT] [RTN] [   ]
- 12clk: [RTN]   [STBT] [RTN] [   ]
-  8clk: [RTN+1] [STBT] [RTN] [RTN]
+  8clk: [RTN]   [STBT] [RTN] [   ]		clk1 stall, circ ssr0
+ 12clk: [RTN]   [STBT] [RTN] [   ]		clk210 stall
+  8clk: [RTN+1] [STBT] [RTN] [RTN]		clk1 stall, circ ssr0
   ....
 
- JSB:    ssr2     ssr1     ssr0     ia
+- JSB:   ssr2     ssr1     ssr0     ia
    T47: [STBT]   [RTN]    [RADR]   [  ]
- Begin: [IS]     [STBT]   [RADR+1] [  ]
-  8clk: [RADR+1] [IS]     [STBT]   [  ]
+ Begin: [IS]     [STBT]   [RADR+1] [  ]	input IS, circ ssr0
+  8clk: [RADR+1] [IS]     [STBT]   [  ] 
  12clk: [STBT]   [RADR+1] [IS]     [  ]
   8clk: [IS+1]   [STBT]   [RADR+1] [IS]
   ....
 
- BRH:    ssr2     ssr1   ssr0   ia
+- BRH:   ssr2     ssr1   ssr0   ia
 		 abuf
    T47: [STBT]   [RTN]  [RADR] [  ]
 		[    ]
@@ -39,15 +39,22 @@
   8clk: [RADR+1] [STBT] [RTN]  [RADR]
 		[     ]
 
+- K2RADR:
+
+ Begin: [RADR]  [STBT]  [RTN]  [  ]
+  8clk: [RTN]   [RADR]  [STBT] [  ]
+ 12clk: [STBT]  [RTN]   [RADR] [  ]
+  8clk: [KR+1]  [STBT]  [RTN]  [KR]
+
 
 		
 
 0000 00 00 00：no Operations					
 
-nnnn 10 01 00: 0 -> sn				l
-nnnn 00 01 00: 1 -> sn				l
-nnnn 01 01 00: if sn = 0			l
-xxxx 11 01 00: clear status			l
+nnnn 10 01 00: 0 -> sn				eo
+nnnn 00 01 00: 1 -> sn				eo
+nnnn 01 01 00: if sn = 0			eo
+xxxx 11 01 00: clear status			eo
 
 nnnn 00 11 00: n -> p				l
 nnnn 10 11 00: if p # n				l
@@ -63,3 +70,12 @@ aaaaaaaa   11: brh a				l
 
 xxxx 01 10 00: load constant n		// Supply P, P-1
 xxxx xx 10 00: ARC related
+
+
+TBD:
+// nnnn 01 ?sn=0
+
+ATE:stbt: 	t8_19	set or clear or test
+	P	: 	t8_11	load or inc or dec or test
+	ISL-H:	t20_27	inc
+	RADR:	t20_27	inc

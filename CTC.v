@@ -50,9 +50,8 @@ reg [7:0]		ssr_2_sr;		// ROM Address Buffer
 reg [11:0]		ssr_1_sr;		// Status bits
 reg [7:0]		ssr_0_sr;		// Return Address Buffer
 
-reg				ssr_2_cen_r;
+reg				ssr_20_cen_r;
 reg				ssr_1_cen_r;
-reg				ssr_0_cen_r;	
 
 reg				ssr_2_nxt;
 reg				ssr_0_nxt;
@@ -105,33 +104,29 @@ wire			stat_bit_on;
 /******************************************************************************
 /*	System Counter & Timing
 /*****************************************************************************/
-// Attention: a binary counter was used at this point, 
-//            potentially a better solution
-
 assign sync 		= te_is;
-
 // assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
 // assign te_ia		= (sys_cnt_r>=6'd20)&&(sys_cnt_r<=6'd26);
 // The hard way
 assign te_is		= sys_cnt_r[5]&&(
-					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
+					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}}) ||
 					(&{sys_cnt_r[3:2],|{sys_cnt_r[1:0]}}));
 
 assign te_ia		= sys_cnt_r[4]&&(
 					(&{~sys_cnt_r[5], ~sys_cnt_r[3],
-						|{&sys_cnt_r[1:0], sys_cnt_r[2]}})	||
+					|{&sys_cnt_r[1:0], sys_cnt_r[2]}})   ||
 					(&{~sys_cnt_r[2], sys_cnt_r[4:3], ~|sys_cnt_r[1:0]}));
 
 assign te_t0_7		= sys_cnt_r <= 6'd07;
 assign te_t8_19		= (sys_cnt_r <= 6'd19)&&~te_t0_7;
 
-assign te_t55		= (sys_cnt_r == 6'd55);
+assign te_t55		= sys_cnt_r == 6'd55;
 assign te_t47		= (sys_cnt_r <= 6'd47)&&te_is;
 assign te_t48		= (sys_cnt_r <= 6'd48)&&te_is;
-assign te_t0		= (sys_cnt_r == 6'd0);
+assign te_t0		= sys_cnt_r == 6'd0;
 
-assign te_t4km1		= (sys_cnt_r[1:0] == 2'b11);
-assign te_t4k		= (sys_cnt_r[1:0] == 2'b00);
+assign te_t4km1		= sys_cnt_r[1:0] == 2'b11;
+assign te_t4k		= sys_cnt_r[1:0] == 2'b00;
 
 always @ (posedge cph2) begin
 	if (sys_cnt_r == 6'd55)	sys_cnt_r <= 0;
@@ -141,10 +136,6 @@ end
 /******************************************************************************
 /*	OPCODE Buffer and Address Buffer (GTO or JSB)
 /*****************************************************************************/
-// Necessary?
-// ATTENTION: a problem is that the itype should be determined
-//  as soon as the first 2 bits entered the sr
-
 assign itype_jsb = (is_buf_sr[1:0] == 2'b01);
 assign itype_brn = (is_buf_sr[1:0] == 2'b11);
 
@@ -172,11 +163,14 @@ always @ (posedge cph1) begin
 	if(te_t47)				is_has_imm_r <= is_buf_sr[8];
 end
 
-
+/******************************************************************************
+/*	CTC ASSERT(Add, Subtract, Set, Erase, Reset, Test)
+/*****************************************************************************/
 /***** Adder out *****/
 assign ptr_imm_nxt = {is_buf_sr[9:6]}[sys_cnt_r[1:0]];
 assign as_brh_out = cry_i_r?ssr_0_sr[0]^cry_1:is_buf_sr[6]^cry_1;
 assign as_brh_cry = cry_i_r?ssr_0_sr[0]&&cry_1:is_buf_sr[6]&&cry_1;
+
 always @ (*) begin
 	// AS enable signal 
 	casex(is_buf_sr[5:0]) 
@@ -237,8 +231,10 @@ end
 
 always @ (posedge cph1) begin
 	// Store Carry for BRH, 1clk before is_buf_sr done
-	if(te_t55&&is_buf_sr[2:1]==2'b11)		carry_in_r <= carry;
-	else ...
+	if(as_en&&(is_buf_sr[5:0]==6'b01_01_00||is_buf_sr[5:0]==6'b10_11_00))
+											cry_i_r <= as_cry;
+	else if(te_t55&&is_buf_sr[2:1]==2'b11)	cry_i_r <= carry;
+	else									cry_i_r <= cry_i_r;
 
 end
 
@@ -247,7 +243,9 @@ always @ (posedge cph2) begin
 	
 end
 
-/***** SSR *****/
+/******************************************************************************
+/*	System Shift Register
+/*****************************************************************************/
 always @ (*) begin
 	// ssr_2_sr entry
 	if(te_is&&itype_jsb) 	ssr_2_nxt = is;		// JSB
@@ -261,17 +259,19 @@ always @ (*) begin
 end
 
 always @ (posedge cph2) begin
-	if(ssr_2_cen_r)	ssr_2_sr <= {ssr_2_nxt, ssr_2_sr[7:1]};
-	else 			ssr_2_sr <= ssr_2_sr;
+	if(ssr_20_cen_r)begin
+					ssr_2_sr <= {ssr_2_nxt, ssr_2_sr[7:1]};
+					ssr_0_sr <= {ssr_0_nxt, ssr_0_sr[7:1]};
+	end else begin 	
+					ssr_2_sr <= ssr_2_sr;
+					ssr_0_sr <= ssr_0_sr;
+	end
 
 	if(ssr_1_cen_r) begin
 		if(te_t55&&kdown)	
 					ssr_1_sr <= {ssr_2_sr[0],ssr_1_sr[11:2], 1'b1};
 		else 		ssr_1_sr <= {ssr_2_sr[0], ssr_1_sr[11:1]};
-	end else 		ssr_1_sr <= ssr_1_sr;
-
-	if(ssr_0_cen_r)	ssr_0_sr <= {ssr_0_nxt, ssr_0_sr[7:1]};
-	else			ssr_0_sr <= ssr_0_sr;
+	end else 		ssr_1_sr <= ssr_1_sr;		
 end
 
 /******************************************************************************
