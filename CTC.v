@@ -57,14 +57,21 @@ reg				ssr_0_cen_r;
 reg				ssr_2_nxt;
 reg				ssr_0_nxt;
 
-reg				as_en_r;		// Adder enable
+wire			as_brh_out;
+wire			as_brh_cry;
+
+reg				as_en;			// Adder enable
 reg				as_out;			// Adder output
+reg				as_cry_en;
+reg				as_cry_init_r;
+wire			as_cry_1;
+reg				as_cry;
 reg				as_cry_r;		// Adder Carry
 
 reg [9:0]		is_buf_sr;		// The inst being executed this cycle		
 reg				is_has_imm_r;
 
-reg				carry_in_r;		// JNC Flag
+reg				cry_i_r;		// JNC Flag
 
 reg [5:0]		kcode_buf_r;	// keycode Buffer
 reg				kdown;
@@ -72,6 +79,7 @@ reg				kdown_r;
 
 /***** Pointer ****************************************************************/
 reg [3:0]		ptr_r;			// Pointer Register
+reg				ptr_imm_nxt;
 reg				ws_type_r;		// handles 000(p) and 001(wp)
 reg				ws_drive_en_r;
 reg				ws_wp_done_r;	// Reached the Pointer in wp mode;
@@ -83,6 +91,7 @@ wire			te_ia;			// IA output, T20-T27, 8 cycle, RADR first pass
 wire			te_is;			// IS Available, T45-T55, 10 cycle
 wire			te_t0_7;		// RTN first pass
 wire			te_t8_19;		// STBT first pass
+wire			te_t8_11;		// P first pass
 wire			te_t47;			// RADR second pass begin
 wire			te_t55;			// Done Refreshing
 wire			te_t0;			// Start Signal
@@ -98,11 +107,11 @@ wire			stat_bit_on;
 /*****************************************************************************/
 // Attention: a binary counter was used at this point, 
 //            potentially a better solution
-assign sync 		= te_is;
-// assign te_ibody		= (sys_cnt_r>=6'd47)&&(sys_cnt_r<=6'd54);
-// assign te_itype		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd46);
-// assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
 
+assign sync 		= te_is;
+
+// assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
+// assign te_ia		= (sys_cnt_r>=6'd20)&&(sys_cnt_r<=6'd26);
 // The hard way
 assign te_is		= sys_cnt_r[5]&&(
 					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}})	||
@@ -143,14 +152,15 @@ assign stat_bit_pos = {~sys_cnt_r[3],sys_cnt_r[2:0]}; // -8
 assign stat_bit_on = te_t8_19&&(stat_bit_pos == is_buf_sr[9:6]);
 
 assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
+
+
 always @ (posedge cph1) begin
 	if(itype_brn) 						ia_out_buf_r = is_buf_sr[2];
 	else if(is_buf_sr[5:0]==6'b010000)	ia_out_buf_r = kcode_buf_r[0];
 	else								ia_out_buf_r = ssr_0_sr[0];
 end
 
-
-always @ (posedge cph2) begin
+always @ (posedge cph1) begin
 	// Load new IS or
 	// Circulate the ibody if it is an imm address
 	if(te_is)				is_buf_sr <= {is, is_buf_sr[9:1]};
@@ -159,48 +169,85 @@ always @ (posedge cph2) begin
 	else					is_buf_sr <= is_buf_sr;
 
 	// Determine whether the ibody is imm address
-	if(te_t47)		is_has_imm_r <= is_buf_sr[8];
-
-	// Store Carry for BRH
-	if(te_t55)		carry_in_r <= carry;
+	if(te_t47)				is_has_imm_r <= is_buf_sr[8];
 end
 
-/***** ADDER *****/
 
+/***** Adder out *****/
+assign ptr_imm_nxt = {is_buf_sr[9:6]}[sys_cnt_r[1:0]];
+assign as_brh_out = cry_i_r?ssr_0_sr[0]^cry_1:is_buf_sr[6]^cry_1;
+assign as_brh_cry = cry_i_r?ssr_0_sr[0]&&cry_1:is_buf_sr[6]&&cry_1;
 always @ (*) begin
-	// Status bits
-	if(is_buf_sr[3:0]==4'b0100) begin
-		// nnnn 00 1->sn
-		// nnnn 01 ?sn=0
-		// nnnn 10 0->sn
-		// xxxx 11 0->s
+	// AS enable signal 
+	casex(is_buf_sr[5:0]) 
+		6'b01_01_00,							// nnnn 01 ?sn=0
+		6'bx0_01_00:	as_en = stat_bit_on;	// nnnn 00 1->sn, nnnn 10 0->sn
+		6'b11_01_00:	as_en = te_t8_19;		// xxxx 11 0->s
 
-	// P
-	end else if((is_buf_sr[3:0]==4'b1100)||(is_buf_sr[5:0]==6'b011000)) begin
-		// nnnn 0011 n->p
-		// nnnn 1011 ?p#n
-		// xxxx 011x p-1->p, p-1->p (ldc n)
-		// xxxx 1111 p+1->p
+												// xxxx 011x p-1->p, p-1->p(ldc)
+												// xxxx 1111 p+1->p
+		6'bxx_11_00,							// nnnn 0011 n->p
+		6'b01_10_00:	as_en = te_t8_11;		// nnnn 1011 ?p#n
 
-	// ISL-H
-	end else if(is_buf_sr[1:0]==2'b01) begin
-		// BRH: IS+1 @ te_ia when no carry
+		6'bxx_xx_01:	as_en = te_is;			// aaaaaaaa 01 jsb a
 
-	// SSR0
-	end else begin
-		// JSB: RADR+1 @ te_is, no te_ia
-		// default: DADR+1 @ te_ia
-		if(is_buf_sr[1:0]==1'b11) begin
-			if(te_is)
-		end else begin
+		default:		as_en = te_ia;			// aaaaaaaa 11 brh a or normal
+	endcase	
+
+	// AS output signal
+	casex(is_buf_sr[6:0])
+		7'bx_01_01_00:	as_out = ssr_0_sr[0];	// nnnn 01 ?sn=0 (pass thru)
+		7'bx_00_01_00:	as_out = 1'b1;			// nnnn 00 1->sn
+		7'bx_1x_01_00:	as_out = 1'b0;			// xxxx 11 0->s, nnnn 10 0->sn
+
+		// 7'bx_01_1x_00,						// xxxx 011x p-1->p, p-1->p
+		// 7'bx_11_11_00:	as_out = ssr_0_sr[0]^cry_1; // xxxx 1111 p+1->p
+		7'bx_00_11_00:	as_out = ptr_imm_nxt;	// nnnn 0011 n->p
+		7'bx_10_11_00:	as_out = ssr_0_sr[0];	// nnnn 1011 ?p#n (pass thru)
+
+		7'bx_xx_xx_11:	as_out = as_brh_out;	// aaaaaaaa 11 brh a 
+
+		7'b1_01_00_00:	as_out = kcode_buf_r[0]^cry_1; // xxx1 01 00 00 k2radr
+
+		default:		as_out = ssr_0_sr[0]^cry_1;
+	endcase
+
+	// AS carry signal
+	casex(is_buf_sr[6:0])
+		7'bx_01_01_00:	as_cry = ssr_0_sr[0];	// nnnn 01 ?sn=0
+
+		7'bx_01_1x_00:	as_cry = !ssr_0_sr[0]&&cry_1;// xxxx 011x p-1->p, p-1->p
+		//7'bx_11_11_00:	as_cry = ssr_0_sr[0]&&cry_1; // xxxx 1111 p+1->p
+												// nnnn 1011 ?p#n
+		7'bx_10_11_00:	as_cry = ~(ssr_0_sr[0]^ptr_imm_nxt)&&cry_1;
+
+		7'bx_xx_xx_11:	as_cry = as_brh_cry;	// aaaaaaaa 11 brh a 
+
+		7'b1_01_00_00:	as_cry = kcode_buf_r[0]&&cry_1; // xxx1 01 00 00 k2radr
+
+		default:		as_cry = ssr_0_sr[0]&&cry_1;
+	endcase
+end
 
 
-		end
-	end
+/***** Carry bit *****/
+always @ (*) begin
+
+end
+
+always @ (posedge cph1) begin
+	// Store Carry for BRH, 1clk before is_buf_sr done
+	if(te_t55&&is_buf_sr[2:1]==2'b11)		carry_in_r <= carry;
+	else ...
+
+end
+
+assign as_cry_1 = as_cry_r || as_cry_init_r;
+always @ (posedge cph2) begin
+	
 end
 
 /***** SSR *****/
-
 always @ (*) begin
 	// ssr_2_sr entry
 	if(te_is&&itype_jsb) 	ssr_2_nxt = is;		// JSB
