@@ -105,8 +105,6 @@ wire			stat_bit_on;
 /*	System Counter & Timing
 /*****************************************************************************/
 assign sync 		= te_is;
-// assign te_is		= (sys_cnt_r>=6'd45)&&(sys_cnt_r<=6'd54);
-// assign te_ia		= (sys_cnt_r>=6'd20)&&(sys_cnt_r<=6'd26);
 // The hard way
 assign te_is		= sys_cnt_r[5]&&(
 					(&{sys_cnt_r[4],|{~sys_cnt_r[2:0]}}) ||
@@ -144,7 +142,6 @@ assign stat_bit_on = te_t8_19&&(stat_bit_pos == is_buf_sr[9:6]);
 
 assign ia = (ia_out_en)?ia_out_buf_r:1'b0;
 
-
 always @ (posedge cph1) begin
 	if(itype_brn) 						ia_out_buf_r = is_buf_sr[2];
 	else if(is_buf_sr[5:0]==6'b010000)	ia_out_buf_r = kcode_buf_r[0];
@@ -173,7 +170,7 @@ assign as_brh_cry = cry_i_r?ssr_0_sr[0]&&cry_1:is_buf_sr[6]&&cry_1;
 
 always @ (*) begin
 	// AS enable signal 
-	casex(is_buf_sr[5:0]) 
+	casex(is_buf_sr[5:0])  //synopsys parallel_case
 		6'b01_01_00,							// nnnn 01 ?sn=0
 		6'bx0_01_00:	as_en = stat_bit_on;	// nnnn 00 1->sn, nnnn 10 0->sn
 		6'b11_01_00:	as_en = te_t8_19;		// xxxx 11 0->s
@@ -189,7 +186,7 @@ always @ (*) begin
 	endcase	
 
 	// AS output signal
-	casex(is_buf_sr[6:0])
+	casex(is_buf_sr[6:0]) //synopsys parallel_case
 		7'bx_01_01_00:	as_out = ssr_0_sr[0];	// nnnn 01 ?sn=0 (pass thru)
 		7'bx_00_01_00:	as_out = 1'b1;			// nnnn 00 1->sn
 		7'bx_1x_01_00:	as_out = 1'b0;			// xxxx 11 0->s, nnnn 10 0->sn
@@ -207,7 +204,7 @@ always @ (*) begin
 	endcase
 
 	// AS carry signal
-	casex(is_buf_sr[6:0])
+	casex(is_buf_sr[6:0]) //synopsys parallel_case
 		7'bx_01_01_00:	as_cry = ssr_0_sr[0];	// nnnn 01 ?sn=0
 
 		7'bx_01_1x_00:	as_cry = !ssr_0_sr[0]&&cry_1;// xxxx 011x p-1->p, p-1->p
@@ -304,7 +301,7 @@ end
 // **** Done...? ****
 always @ (*) begin
 	// Kr
-	case(sys_cnt_r[2:0]) 
+	case(sys_cnt_r[2:0])  
 		3'b000:	kr = 8'b0000_0001;
 		3'b001: kr = 8'b0000_0100;
 		3'b010: kr = 8'b0010_0000;

@@ -1,0 +1,324 @@
+HP 67 Internals
+
+Posted by Tony Duell on 2 Oct 2003, 9:42 p.m.
+
+This machine may look like a 'classic series', but it uses an ACT 
+(Arithmetic, Control, Timing) processor chip, and is electrically a 
+Woodstock.
+
+There are 3 PCBs in the case. The uppermost one (with the machine in the 
+normal operating position) carries the keyboard, display, display drivers 
+and card reader switch contacts. This is connected by 28 pins to the 
+logic PCB that contains the processor, memory, card reader controller and 
+power converter. Finally, this is connected bu a 10 pin connector to the 
+card reader PCB (very similar to that in the HP65).
+
+
+Connections from Keyboard to Logic PCB :
+
+
+  LHS of machine
+  o-- Vbsw
+  o-- Vbsw
+  o-- PGMSw/
+  o-- Phi_1
+  o-- Sync
+  o-- ISA
+  o-- KC1
+  o-- KC2
+  o-- KC3
+  o-- KC4
+  o-- KC5
+  o-- HDS/
+  o-- MTRS/
+  o-- RCD
+  o-- WPS
+  o-- STR
+  o-- SF
+  o-- SA
+  o-- SB
+  o-- SC
+  o-- SD
+  o-- SG
+  o-- SE
+  o-- SH
+  o-- Idisp
+  o-- Ibias
+  o-- Gnd
+  o-- Gnd
+
+
+Vbsw : Switched Battery voltage, Gnd : Ground
+PGMSw/ : Program/Run switch (low = Program mode)
+Phi_1, Sync, ISA : Logic PCB testpoints (not connected on keyboard)
+KCn : Keyboard column lines
+HDS/ : Card at reader head
+MTRS/ : Card reader motor swtich
+WPS : Card reader write protect (corner clipped) switch
+RCD : Reset cathode driver, STR : Display digit strobe
+Sx : Display segment drive lines
+Idisp : Display current control, Ibias : control resistor
+
+
+The keyboard PCB contains 2 ICs : 
+
+
+1820-1749 Cathode driver (also scans keyboard rows): 
+Essentially a shift register to select the kn lines in turn.
+
+
+       -----------
+ k3 --|     U     |-- k2
+ k4 --|           |-- k1
+ k5 --|           |-- STR
+ k6 --|           |-- RCD
+ k7 --|           |-- Vcc
+ k8 --|           |-- BT
+ k9 --|           |-- LLD
+k10 --|           |-- k14
+k11 --|           |-- k13
+Gnd --|           |-- k12
+       -----------
+
+
+kn = Display carhode lines
+Vcc = Switched battery voltage
+RCD = reset cathode driver
+STB = digit strobe
+BT = Low battery control input
+LLD = Low batter LED drive output
+
+
+1858-0050 = CA3082 NPN transistor array
+Yes, a standard IC in an HP handheld. It has 7 NPN transistors with a 
+common collector (to the IDisp line). These drive the following segments: 
+Section   Segment
+   a        b
+   b        e
+   c        c
+   d        f
+   e        a
+   f        h (decimal point)
+   g        d
+
+
+The g segment is driven by one of the discrete NPN transistors on the 
+keyboard PCB, the other 3 transsitors form a circuit to map both minus 
+signs (g segments of figts 3 and 15) into the same digit. Note that the 
+display is 'both ways scanned' -- a digit is selected, then the segments 
+for that digit position are selected in turn.
+
+
+The keyboard is scanned by the cathode driver, 8 of the outputs select 
+rows of the keyboard
+
+
+Keyboard row   Cathode line   
+    1             8
+    2             6
+    3            13
+    4             5
+    5            11
+    6             3
+    7             9
+    8             7
+
+
+Logic PCB 
+---------
+
+
+Two of the discrete transsitors here form the standard HP power converter 
+circuit giving Vcc (+6.2V) and Vgg (-12V) from the battery. The other 2 
+form a current mirrr circuit to set the display current.
+
+
+1820-2530 : ACT processor 
+
+
+        -----------
+ Vss---|     U     |-- 
+ Vgg --|           |-- RCD
+  F1 --|           |-- Sync
+  F2 --|           |-- PWO/
+ KC1 --|           |-- POR
+ KC2 --|           |-- Phi_1
+ KC3 --|           |-- Phi_2
+ KC4 --|           |-- 
+ KC5 --|           |-- LC1
+ ISA --|           |-- LC2
+Data --|           |-- Gnd
+        -----------
+
+
+Vss : +6.2V, Vgg : =12V
+F1, F2 : Flag inputs (F1 N/C, F2 from card reader controller FLG line)
+KCn : Keyboard columns
+ISA : Instruction and Address signal to/from memory
+Data : Data line for RAM devices
+Sync : Bus sync line (Low during instruction part of the cycle, most of 
+the time)
+Phi_n : 2 phase system clock (outputs on CPU)
+LCn : Connections for parallel LC clock tank circuit
+PWO/ : Power off
+POR : Power On Reset (conencted to Vss via 2.2uF capactior)
+
+
+1818-0268 : ROM 0 and display decoder
+
+
+       --------- 
+ SA --|    U    |-- Sync
+ SF --|         |-- Vgg
+ SB --|         |-- Phi_2
+ SC --|         |-- Phi_1
+  I --|         |-- 
+ SD --|         |-- ISA
+ SH --|         |-- Gnd
+ SE --|         |-- STR
+ SG --|         |-- Vss
+       ---------
+Vss, Vgg : Power supply
+ISA : Instruction and Address
+Sync : System bus sync input
+Phi_n : 2 phase system clock
+STR : Display digit strobe
+Sx : Segment drive outputs (to display anode driver)
+I : Display current control input (connected to Vxx via resistor)
+
+
+1818-0550, 1881-0551, 1818-0231, 1818-0232
+ROM/RAM ICs
+
+
+         -----------
+   Vss--|     U     |-- Sync
+Phi_2 --|           |-- ISA
+  Vgg --|           |-- Gnd
+Phi_1 --|           |-- Data
+         -----------
+Vss, Vgg : Power supply
+ISA : Instruction and Address
+Sync : System bus sync input
+Phi_n : 2 phase system clock
+
+
+Each chip contains ROM and 16 7 byte registers, so a total of 64 
+registers in the machine. 32 of them are used for 32*7 = 224 bytes 
+(steps) of user program memory). The other 32 registers form the 26 user 
+register (P0-P9, S0-S9, A-E and i), the 5 stack registers and one 
+register containing the user flags, angle mode, decimal setting, etc.
+
+
+1820-1751 Card Reader Controller
+           -----------
+ Motor/ --|     U     |-- Gnd
+    Vss --|           |-- Flg/
+    WPS --|           |-- 
+  MTRS/ --|           |-- 
+   HDS/ --|           |--
+   PWO/ --|           |-- SF1
+     RB --|           |-- 
+     RA --|           |-- 
+     WE --|           |--
+     WA --|           |--
+     WB --|           |--
+   Data --|           |-- ISA
+  Phi_1 --|           |-- Sync
+  Phi_2 --|           |-- Vgg
+           -----------
+
+
+Vss, Vgg : Power supply
+ISA : Instruction and Address
+Sync : System bus sync input
+Phi_n : 2 phase system clock
+PWO/ : Power off
+HDS/ : Card at reader head
+MTRS/ : Card reader motor swtich
+WPS : Card reader write protect (corner clipped) switch
+SF1/ : Flag input (from Program switch)
+FLG/ : Flag output (to ACT F2)
+RA, RB : Card read data
+WA, WB : Card write data
+WE : Card write enable
+Motor/ : Motor on
+
+
+Card reader to logic PCB connector : 
+
+
+Top of machine : 
+
+
+ o-- Vss
+ o-- RA
+ o-- RB
+ o-- WE
+ o-- 
+ o-- WB
+ o-- WA
+ o-- VBsw
+ o-- Motor/
+ o-- Gnd
+
+
+Vss, VBsw, Gnd : Power supply
+RA, RB : Card read data
+WA, WB : Card write data
+WE : Card write enable
+Motor/ : Motor on
+
+
+Card reader 
+-----------
+
+
+The 20 pin IC on the card reader PCB is the sense amplifier, write driver 
+and motor controller. The pinout is : 
+
+
+          1826-0322
+
+
+          -----------
+    Vm --|     U     |-- Vbb
+    TR --|           |-- Vss
+    GB --|           |-- Vbsw
+   HAC --|           |-- MTRS/
+    HA --|           |-- MI (connected to Vbsw)
+    CA --|           |-- WA
+   Gnd --|           |-- RA
+   HBC --|           |-- WB
+    HB --|           |-- RB
+    CB --|           |-- WE
+          -----------
+
+
+Vm = Motor voltage output
+TR = Motor speed control resistor (other end to Vm)
+GB = Motor ground (to -ve side of battery pack and motor)
+Vbb = Unswitched battery voltage
+Vbsw = Switched battery voltage
+Vss = +6.25V power input
+MTRS/ = Motor run input
+WA, WB = Write data inputs
+RA, RB = Read data outputs
+WE = Write Enable input
+HA, HB = one side of head winding (for each track)
+CA, CB = +ve end of 22uF cap (other side to HAC, HBC)
+HAC, HBC = -ve side of 22uF cap, other end of head winding.
+
+
+Head wiring colours : 
+
+
+Blue = HA     ) Track A winding
+Orange = HAC  ) 
+
+
+Red = HB      ) Track B winding
+Yellow = HBC  )
+
+
+Black = ground

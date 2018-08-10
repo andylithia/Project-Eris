@@ -104,7 +104,6 @@ cry_z	>^^^^^^^^^^^^^\_____------???------^^^^^^^^^^^^^^^^^^^^^^^^^^>
 
 
 
-// EXTRA(HP45)
 0001 0000 00: buffer -> rom address
 0010 0000 00: memory insert
 0100 0000 00: mark and search
@@ -112,6 +111,8 @@ cry_z	>^^^^^^^^^^^^^\_____------???------^^^^^^^^^^^^^^^^^^^^^^^^^^>
 1000 0000 00: rom address -> buffer
 1010 0000 00: search for label
 1100 0000 00: pointer advance
+
+HP45 RAM chip specific 
 
 10011 101 00: c -> data address			Y
 10111 101 00: c -> data					Y

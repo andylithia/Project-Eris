@@ -1,0 +1,344 @@
+HP 65 Internals
+
+Posted by Tony Duell (UK) on 18 Sept 2003, 9:22 p.m.
+
+There are 3 PCBs in the case. The lowest one contains the keyboard 
+switches, displays, and display drivers. It connects by a 28 pin 
+connector to the logic PCB, which contains the PSU, CPU hybrid and ROMs. 
+The logic PCB is then connected to the card reader PCB by a 10 pin 
+connector. The card reader head and motor are hardwired to the card 
+reader PCB.
+
+The 28 pin connector between the keyboard/display and the logic PCB 
+carries similar signals to the 25 pin connector in the HP35, together 
+with 3 switch signals from the card reader contacts and the program 
+switch signal. The pinout is : 
+
+
+1 (LHS of machine)
+o-- Disp 0
+o-- Disp 1
+o-- Disp 2
+o-- KC1
+o-- Disp 3
+o-- Disp 4
+o-- HDS/
+o-- WPS
+o-- MTRS/
+o-- Phi_1
+o-- KC2
+o-- Vbsw
+o-- Phi_2
+o-- Gnd
+o-- Vcc
+o-- PGMSw/
+o-- KC3
+o-- KR1
+o-- KR2
+o-- KR3
+o-- KC5
+o-- KR4
+o-- KC4
+o-- KR5
+o-- KR6
+o-- KR7
+o-- KR8
+o-- RCD
+
+
+KC = keybaord column line, KR = keyboard row line
+Disp = display data bus from CPU hybrid to anode driver
+RCD = Reset cathode driver (start display scan)
+Phi_n = 2 phase clock from anode driver to CPU
+Vcc = 8.2V power line to cathode driver
+Vbsw = Switched battery voltage 
+PGMSw/ = program mode switch (ground = w/pgm mode)
+HDS/ = card reader head swtich (ground = card over head)
+MTRS/ = card reader motor switch (ground = card inserted)
+WPS = card reader write protect switch (ground when HDS/ goes to ground = 
+      corner not clipped)
+
+
+There are 2 custom chips on the keyboard/display PCB : 
+
+
+1820-1029 (anode driver and system clock)
+
+
+           ----------
+  Disp0 --|    U     |-- Ag
+  Disp1 --|          |-- Ae
+  Disp2 --|          |-- Ah
+  Disp3 --|          |-- Af
+  Disp4 --|          |-- Ad
+   Step --|          |-- Gnd
+  Phi_1 --|          |-- Ab
+  Phi_2 --|          |-- Ac
+     LC --|          |-- Aa
+   Rset --|          |-- Vbsw
+           ----------
+
+
+Disp = Display data bus (as above). 
+A = display anode drive lines [1], segments named conventionally (h = 
+decimal point)
+Phi_n = clock output to logic board
+Step = step output to cathode driver (display scanning)
+LC = oscillator components (LC series circuit from here to ground)
+Rset = resistor from here to ground, appears to be part of low battery 
+circuit
+
+
+[1] There's an inductor of 130uH (or 68uH for the point) from each anode 
+line to Vbsw. Display runs from back-emf from these inductors. The HP65 
+uses 4-inductor hybrid modules rather than the discrete inductors used in 
+earlier machines : 
+
+
+1810-0146
+
+
+  Ae---UUUUU---+
+        130uH  |
+               |
+  Af---UUUUU---+
+        130uH  |
+               |
+  Ah---UUUUU---+
+        68uH   |
+               |
+  Ag---UUUUU---+
+        130uH  |
+               |
+  Vbsw---------+
+        C
+
+
+
+1810-0147 
+
+
+  Aa---UUUUU---+
+        130uH  |
+               |
+  Ab---UUUUU---+
+        130uH  |
+               |
+  Ac---UUUUU---+
+        130uH  |
+               |
+  Ad---UUUUU---+
+        130uH  |
+               |
+  Vbsw---------+
+         C
+
+
+
+1820-1226 cathode driver (essentially a 15 stage shift register for 
+display scanning).
+
+
+
+           ----------
+     k9 --|    U     |-- k8
+    k10 --|          |-- k7
+    k11 --|          |-- k9
+   Vbsw --|          |-- k5
+    k12 --|          |-- k4
+    k13 --|          |-- Vbsw
+    k14 --|          |-- k3
+    RCD --|          |-- k2
+   Step --|          |-- k1
+    Vcc --|          |-- k15
+           ----------
+
+
+k = display cathode outputs. Step = display scan clock from anode driver
+RCD = Reset Cathode Driver = start scan (from A&R chip)
+Note lack of ground pin -- runs between Vcc (8.2V) and Vbsw (4V).
+
+
+
+Logic PCB
+---------
+The discrete components on this board are almost all part of the PSU, 
+which is very similar to that in earlier machines. It provides Vss 
+(+6.25V) and Vgg (-12V) to the logic, and Vcc (+8.2V) to the display driver.
+
+
+The CPU in this machines is a 44 pin hybrid circuit containing 6 chips. 
+These are believed to be :
+
+
+Arithmetic and Registers
+Control and Timing
+2 * RAM (data and user program store?)
+Clock driver and init
+Card Reader Controller.
+
+
+The pinout of the hybrid (60218-00065) is  :
+
+
+           --------------
+     WE --|       U      |-- RB
+    WPS --|              |-- RA
+    T/P --|              |--
+   HDS/ --|              |-- Phi_2 In
+  MTRS/ --|              |-- Phi_1 In
+     WB --|              |-- Phi_2 Out
+     WA --|              |-- Phi_1 Out
+     IA --|              |-- Init
+    Gnd --|              |-- Init C
+    Vss --|              |-- Data
+  Disp2 --|              |-- RCD
+  Disp1 --|              |-- IS
+  Disp0 --|              |-- Sync
+  Disp3 --|              |-- PGMSw/
+  Disp4 --|              |-- WS
+    Vgg --|              |-- KC1
+    KR2 --|              |-- KC2
+    KR3 --|              |-- KC3
+    KR4 --|              |-- KC4
+    KR5 --|              |-- KC5
+    KR6 --|              |-- KR7
+    KR1 --|              |-- KR8
+           --------------
+
+
+KR = Keyboard row lines, KC = keyboard column lines
+Disp = display data (to anode driver)
+RCD = Reset Cathode Driver
+Phi_n In = 2 phase clock input from anode driver
+Phi_n Out = 2 phase clock output to ROMs
+Init C = Reset capacitor input (2.2uF from this pin to ground)
+Init = Reset output to ROMs
+Sync = machine cycle synchronisation
+IA = Instruction Address to ROMs
+IS = Instruction from ROMs
+WS = Word select
+Data = serial BCD data from X register (testpoint)
+Vss = +6.25V, Vgg=-12V power lines
+PGMSw/ = program switch input
+HDS/, MTRS/, WPS = card reader switch inputs (see above)
+RA, RB = Read data inputs from the 2 card reader tracks
+WA, WB = Write data outputs to card reader tracks
+WE = Card reader write enable
+T/P = testpoint (connected to card reader connector)
+
+
+The other 3 chips on the logic PCB are ROMs : 
+
+
+1818-0073, 1818-0074, 1818-0075 
+
+
+             -------
+      Vss --|   U   |-- 
+          --|       |-- IA
+          --|       |-- WS
+      Gnd --|       |--
+     Init --|       |-- Phi_1
+       IS --|       |-- Vgg
+     Sync --|       |-- Phi_2
+          --|       |--
+             -------
+
+
+The signals are as described above.
+
+
+There are 10 testpoints on the logic PCB : 
+
+
+(Top of machine) 
+o-- Sync
+o-- IS
+o-- IA
+o-- Vgg
+o-- Phi_2 Out
+o-- Phi_1 Out
+o-- Init
+o-- Data
+o-- WS
+o-- RCD
+
+
+There is also a 10 pin connector to the card reader : 
+
+
+(Top of machine) 
+o-- Vss
+o-- RA
+o-- RB
+o-- WE
+o-- T/P (from CPU pin 3)
+o-- WB
+o-- WA
+o-- Vbsw
+o-- MTRS/
+o-- Gnd
+
+
+RA, RB = Read data from card reader to CPU (2 tracks)
+WA, WB = Write data from CPU to card reader (2 tracks)
+WE = Write Enable
+Vbsw = switched battery voltage
+Vss = +6.25V
+MTRS/ = motor switch (to start card reader motor)
+
+
+Card reader 
+-----------
+
+
+The 20 pin IC on the card reader PCB is the sense amplifier, write driver 
+and motor controller. The pinout is : 
+
+
+          1826-0158
+
+
+          -----------
+    Vm --|     U     |-- Vbb
+    TR --|           |-- Vss
+    GB --|           |-- Vbsw
+   HAC --|           |-- MTRS/
+    HA --|           |-- MI (connected to Vbsw)
+    CA --|           |-- WA
+   Gnd --|           |-- RA
+   HBC --|           |-- WB
+    HB --|           |-- RB
+    CB --|           |-- WE
+          -----------
+
+
+Vm = Motor voltage output
+TR = Motor speed control resistor (other end to Vm)
+GB = Motor ground (to -ve side of battery pack and motor)
+Vbb = Unswitched battery voltage
+Vbsw = Switched battery voltage
+Vss = +6.25V power input
+MTRS/ = Motor run input
+WA, WB = Write data inputs
+RA, RB = Read data outputs
+WE = Write Enable input
+HA, HB = one side of head winding (for each track)
+CA, CB = +ve end of 22uF cap (other side to HAC, HBC)
+HAC, HBC = -ve side of 22uF cap, other end of head winding.
+
+
+Head wiring colours : 
+
+
+Blue = HA     ) Track A winding
+Orange = HAC  ) 
+
+
+Red = HB      ) Track B winding
+Yellow = HBC  )
+
+
+Black = ground
+
